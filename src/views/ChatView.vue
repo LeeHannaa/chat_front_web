@@ -1,21 +1,34 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref, nextTick } from 'vue'
 import { fetchChats } from '../api/chatApi'
 import { defineProps } from 'vue'
-import { useChatStore } from '../stores/chat'
+import { Chat, useChatStore } from '../stores/chat'
+// import dayjs from 'dayjs'
+// import relativeTime from 'dayjs/plugin/relativeTime'
+
+// dayjs.extend(relativeTime)
 
 const props = defineProps<{
-  myId: number
   id: number
   name: string
   from: string
 }>()
 
+import { Client } from '@stomp/stompjs'
+let websocketClient: Client
+
 const chatStore = useChatStore()
+const myId = ref<number | null>(null)
+const msg = ref<string | null>(null)
+const chatContainer = ref<HTMLElement | null>(null)
 
 async function getChats() {
+  if (myId.value === null) {
+    console.error('사용자 ID가 없습니다.')
+    return
+  }
   try {
-    const data = await fetchChats(props.myId, props.from, props.id)
+    const data = await fetchChats(myId.value, props.from, props.id)
     if (data) {
       chatStore.chats = []
       chatStore.setChats(data[0]?.body || [])
@@ -26,34 +39,119 @@ async function getChats() {
   }
 }
 onMounted(() => {
+  connect() // 웹소켓 연결
+  myId.value = Number(localStorage.getItem('userId'))
+  console.log('myId : ', myId.value)
+  if (isNaN(myId.value) || myId.value === null) {
+    console.error('사용자 ID가 없습니다.')
+    return
+  }
   getChats()
 })
+
+function connect() {
+  const url = 'ws://localhost:8080/ws-stomp'
+
+  websocketClient = new Client({
+    brokerURL: url,
+    connectHeaders: {
+      // 'Authorization': 'Bearer yourToken'
+    },
+    debug: (str) => {
+      console.log(str)
+    },
+    onConnect: () => {
+      console.log('웹소켓 연결 성공!')
+      // TODO : 연결 후 구독 및 메시지 처리
+      websocketClient.subscribe('/topic/message', (message) => {
+        console.log('구독 메시지:', message)
+      })
+    },
+    onStompError: (frame) => {
+      console.error('STOMP 오류:', frame)
+    },
+  })
+  websocketClient.activate()
+}
+
+function handleButtonClick() {
+  if (msg.value && msg.value.trim() !== '') {
+    const newChat: Chat = {
+      id: '',
+      writerId: myId.value,
+      writerName: '나', // 실제 사용자 이름을 넣어야 할 경우 수정
+      createTime: new Date().toISOString(), // TODO : 서버랑 시간 맞추기
+      roomId: props.id,
+      name: props.name, // 방 이름
+      msg: msg.value.trim(),
+    }
+    console.log('newChat 전송하는 정보 : ', newChat)
+    websocketClient.publish({
+      destination: '/app/message',
+      body: JSON.stringify(newChat),
+    })
+    // 채팅을 chatStore에 추가
+    chatStore.chats.push(newChat)
+    // 메시지 입력칸 초기화
+    msg.value = null
+
+    nextTick(() => {
+      if (chatContainer.value) {
+        console.log('채팅 전송됨! 스크롤바 이동!')
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+      }
+    })
+  } else {
+    console.log('빈 메시지는 전송할 수 없습니다.')
+  }
+}
+// TODO : 날짜 포멧팅 과정 다시
+// function formatDate(dateTime: string) {
+//   const today = dayjs()
+//   const inputDate = dayjs(dateTime)
+
+//   if (inputDate.isSame(today, 'day')) {
+//     return inputDate.format('HH:mm')
+//   }
+
+//   if (inputDate.isSame(today.subtract(1, 'day'), 'day')) {
+//     return '어제'
+//   }
+
+//   return inputDate.format('YYYY.MM.DD')
+// }
 </script>
 
 <template>
   <div class="chatpage">
     <h2>[ {{ props.name }} ] 대화방</h2>
-    <div
-      v-if="chatStore.chats.length > 0"
-      style="width: 100%; display: flex; flex-direction: column"
-    >
+    <div v-if="chatStore.chats.length > 0 && myId !== null" class="chatBox" ref="chatContainer">
       <div
         v-for="chat in chatStore.chats"
         :key="chat.id"
         :class="{
-          'my-chat': chat.writerId === props.myId,
-          'other-chat': chat.writerId !== props.myId,
+          'my-chat': chat.writerId === myId,
+          'other-chat': chat.writerId !== myId,
         }"
       >
         <div class="chat-content">
-          <h3 v-if="chat.writerId === props.myId">
+          <h3 v-if="chat.writerId !== myId">
             {{ chat.writerName }}
           </h3>
           <p>{{ chat.msg }}</p>
+          <!-- <p>{{ formatDate(chat.createTime) }}</p> -->
         </div>
       </div>
     </div>
-    <!-- TODO : 채팅입력창 만들고 api 연결 및 소켓 연결 후 테스팅 -->
+    <div class="inputBox">
+      <input
+        class="msginput"
+        v-model="msg"
+        placeholder="메시지를 입력하세요"
+        @keyup.enter="handleButtonClick"
+      />
+      <button class="msgBT" @click="handleButtonClick" style="margin-left: 10px">확인</button>
+    </div>
   </div>
 </template>
 
@@ -62,13 +160,22 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   background-color: #f9f9f9;
   padding: 15px;
+  position: relative;
+  height: 70vh;
+}
+
+.chatBox {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 80%;
+  overflow: auto;
 }
 
 .my-chat {
-  align-self: flex-start;
+  align-self: flex-end;
   background-color: #d3f9d8;
   padding: 12px;
   border-radius: 10px;
@@ -78,7 +185,7 @@ onMounted(() => {
 }
 
 .other-chat {
-  align-self: flex-end;
+  align-self: flex-start;
   background-color: #e1f0f9;
   padding: 12px;
   border-radius: 10px;
@@ -96,5 +203,35 @@ onMounted(() => {
   margin: 5px 0;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.inputBox {
+  width: 100%;
+  position: absolute;
+  bottom: 0;
+  margin-left: 8%;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.msginput {
+  margin: 5px;
+  font-size: 13px;
+  width: 80%;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  box-shadow: 4px 4px 6px rgba(139, 191, 102, 0.1);
+  padding: 10px;
+}
+
+.msgBT {
+  margin: 5px;
+  font-size: 13px;
+  width: 10%;
+  height: 40px;
+  background: #8ec78bff;
+  border: none;
+  border-radius: 10px;
 }
 </style>

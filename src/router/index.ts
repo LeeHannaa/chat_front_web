@@ -14,7 +14,6 @@ const router = createRouter({
       name: 'chat',
       component: () => import('../views/ChatView.vue'),
       props: (route) => ({
-        myId: Number(route.query.myId),
         id: Number(route.query.id),
         name: route.query.name,
         from: route.query.from,

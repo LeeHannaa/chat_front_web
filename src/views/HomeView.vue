@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchChatList } from '../api/chatlistApi'
 import { useChatListStore } from '../stores/chatlist'
 
 const router = useRouter()
 const chatStore = useChatListStore()
-const userId = ref<number | null>(null)
+const myId = ref<number | null>(null)
 
 async function getChatList() {
-  if (userId.value === null) return
+  if (myId.value === null) return
   try {
-    const data = await fetchChatList(userId.value) // 임시 myId 넣기
+    const data = await fetchChatList(myId.value) // 임시 myId 넣기
     if (data) {
       chatStore.chatList = []
       chatStore.setChatList(data)
@@ -22,7 +22,7 @@ async function getChatList() {
   }
 }
 function handleButtonClick() {
-  if (userId.value !== null) {
+  if (myId.value !== null) {
     getChatList() // Call API with user ID on button click
   } else {
     console.error('사용자 아이디를 입력해 주세요.')
@@ -30,16 +30,27 @@ function handleButtonClick() {
 }
 
 onMounted(() => {
+  const storedId = localStorage.getItem('userId')
+  if (storedId) {
+    myId.value = Number(storedId)
+    getChatList()
+  }
   if (chatStore.chatList.length > 0) {
     console.log('전역 상태에서 채팅 목록 불러옴:', chatStore.chatList)
   }
+  watch(myId, (newId) => {
+    if (newId !== null) {
+      localStorage.setItem('userId', String(newId))
+    } else {
+      localStorage.removeItem('userId')
+    }
+  })
 })
 
 function handleChatClick(chat: { id: number; name: string }) {
   router.push({
     path: '/chat',
     query: {
-      myId: Number(userId.value),
       id: Number(chat.id),
       name: chat.name,
       from: 'chatlist',
@@ -54,7 +65,7 @@ function handleChatClick(chat: { id: number; name: string }) {
       <h3>채팅 목록</h3>
       <h5>테스트 사용자 아이디 지정</h5>
       <div>
-        <input v-model.number="userId" placeholder="아이디 입력" type="number" />
+        <input v-model.number="myId" placeholder="아이디 입력" @keyup.enter="handleButtonClick" />
         <button @click="handleButtonClick" style="margin-left: 10px">확인</button>
       </div>
       <div v-if="chatStore.chatList.length > 0">
@@ -75,9 +86,15 @@ function handleChatClick(chat: { id: number; name: string }) {
 </template>
 
 <style>
+.main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
 .chat {
   background: rgb(232, 255, 228);
-  gap: 10px;
   width: 200px;
   height: 100px;
   margin-bottom: 15px;
@@ -85,25 +102,5 @@ function handleChatClick(chat: { id: number; name: string }) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-}
-@media (min-width: 1024px) {
-  .main {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
-  .chat {
-    background: rgb(232, 255, 228);
-    gap: 10px;
-    width: 200px;
-    height: 100px;
-    margin-bottom: 15px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
 }
 </style>

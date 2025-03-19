@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
-interface Chat {
-  id: number
+export interface Chat {
+  id: string
   writerId: number
   writerName: string
   createTime: string
