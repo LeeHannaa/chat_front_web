@@ -88,7 +88,6 @@ function handleButtonClick() {
   if (msg.value && msg.value.trim() !== '') {
     const newChat: postChat = {
       writerId: myId.value ?? 0,
-      // TODO : 채팅방으로 들어온 경우는 props.id 하면 roomId로 넘어가는데 매물 리스트에서 들어온 경우는 이렇게 넘기면 안됨;;;
       roomId: roomId.value ?? 0,
       msg: msg.value.trim(),
     }
@@ -97,7 +96,7 @@ function handleButtonClick() {
       destination: '/app/message',
       body: JSON.stringify(newChat),
     })
-    // 채팅을 chatStore에 추가
+    // TODO : 채팅을 chatStore에 추가
     // chatStore.chats.push(newChat)
     // 메시지 입력칸 초기화
     msg.value = null

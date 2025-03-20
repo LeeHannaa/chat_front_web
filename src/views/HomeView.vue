@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchChatList } from '../api/chatlistApi'
+import { fetchChatList, fetchChatDelete } from '../api/chatlistApi'
 import { useChatListStore } from '../stores/chatlist'
 
 const router = useRouter()
@@ -57,6 +57,18 @@ function handleChatClick(chat: { id: number; name: string }) {
     },
   })
 }
+
+async function handleDeleteClick(roomId: number, event: { stopPropagation: () => void }) {
+  event.stopPropagation()
+  try {
+    // TODO : 삭제할 때 카산드라 db에 있는 채팅 내용은 삭제가 안됨..
+    await fetchChatDelete(roomId)
+    console.log('삭제 완료!!')
+    getChatList()
+  } catch (err) {
+    console.error(err)
+  }
+}
 </script>
 
 <template>
@@ -76,8 +88,9 @@ function handleChatClick(chat: { id: number; name: string }) {
           @click="handleChatClick(chat)"
           style="cursor: pointer"
         >
-          <h3>{{ chat.name }}</h3>
+          <h3>[ {{ chat.name }} ] 채팅방</h3>
           <p>{{ chat.lastMsg || '메시지가 없습니다' }}</p>
+          <button class="deleteBT" @click="handleDeleteClick(chat.id, $event)">나가기</button>
         </div>
       </div>
       <p v-else>채팅 목록이 없습니다.</p>
@@ -95,12 +108,22 @@ function handleChatClick(chat: { id: number; name: string }) {
 }
 .chat {
   background: rgb(232, 255, 228);
-  width: 200px;
-  height: 100px;
+  width: 300px;
+  height: 120px;
   margin-bottom: 15px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+.deleteBT {
+  margin: 5px;
+  font-size: 13px;
+  width: 70px;
+  height: 30px;
+  background: #8ec78bff;
+  border: none;
+  border-radius: 10px;
 }
 </style>
