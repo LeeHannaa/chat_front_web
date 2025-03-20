@@ -9,7 +9,7 @@ import HelloWorld from './components/HelloWorld.vue'
       <HelloWorld msg="채팅 웹버전 테스트" />
       <nav>
         <RouterLink to="/">채팅 목록</RouterLink>
-        <RouterLink to="/chat">채팅방</RouterLink>
+        <RouterLink to="/apt">매물 리스트</RouterLink>
       </nav>
     </div>
   </header>

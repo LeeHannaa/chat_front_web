@@ -4,9 +4,13 @@ export interface Chat {
   id: string
   writerId: number
   writerName: string
-  createTime: string
+  createdDate: string
   roomId: number
-  name: string
+  msg?: string
+}
+export interface postChat {
+  writerId: number
+  roomId: number
   msg?: string
 }
 

@@ -19,6 +19,20 @@ const router = createRouter({
         from: route.query.from,
       }),
     },
+    {
+      path: '/apt',
+      name: 'apt',
+      component: () => import('../views/AptView.vue'),
+    },
+    {
+      path: '/aptDetail',
+      name: 'aptDetail',
+      component: () => import('../views/AptDetailView.vue'),
+      props: (route) => ({
+        id: Number(route.query.id),
+        name: route.query.name,
+      }),
+    },
   ],
 })
 

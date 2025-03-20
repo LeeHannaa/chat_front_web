@@ -62,7 +62,7 @@ function handleChatClick(chat: { id: number; name: string }) {
 <template>
   <main>
     <div class="main">
-      <h3>채팅 목록</h3>
+      <h3>나의 채팅 목록</h3>
       <h5>테스트 사용자 아이디 지정</h5>
       <div>
         <input v-model.number="myId" placeholder="아이디 입력" @keyup.enter="handleButtonClick" />

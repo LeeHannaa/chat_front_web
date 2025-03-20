@@ -2,11 +2,11 @@
 import { onMounted, ref, nextTick } from 'vue'
 import { fetchChats } from '../api/chatApi'
 import { defineProps } from 'vue'
-import { Chat, useChatStore } from '../stores/chat'
-// import dayjs from 'dayjs'
-// import relativeTime from 'dayjs/plugin/relativeTime'
+import { type Chat, type postChat, useChatStore } from '../stores/chat'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
 
-// dayjs.extend(relativeTime)
+dayjs.extend(relativeTime)
 
 const props = defineProps<{
   id: number
@@ -19,6 +19,7 @@ let websocketClient: Client
 
 const chatStore = useChatStore()
 const myId = ref<number | null>(null)
+const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
 
@@ -31,8 +32,17 @@ async function getChats() {
     const data = await fetchChats(myId.value, props.from, props.id)
     if (data) {
       chatStore.chats = []
-      chatStore.setChats(data[0]?.body || [])
-      console.log('채팅 내역:', chatStore.chats)
+      // TODO : 새로 만들어진 방이면 set하지 않고 roomId만 따로 저장하기
+
+      if (data[0]?.body && data[0].body[0]?.id !== null) {
+        chatStore.setChats(data[0]?.body || [])
+        roomId.value = data[0]?.body[0]?.roomId
+        console.log('채팅 내역:', chatStore.chats)
+      } else {
+        // 방이 새로 만들어진 경우에는 setChats를 하지 않음
+        roomId.value = data[0]?.body[0]?.roomId || null
+        console.log('처음 방 생성!! 방 아이디 : ', roomId)
+      }
     }
   } catch (err) {
     console.error(err)
@@ -76,13 +86,10 @@ function connect() {
 
 function handleButtonClick() {
   if (msg.value && msg.value.trim() !== '') {
-    const newChat: Chat = {
-      id: '',
-      writerId: myId.value,
-      writerName: '나', // 실제 사용자 이름을 넣어야 할 경우 수정
-      createTime: new Date().toISOString(), // TODO : 서버랑 시간 맞추기
-      roomId: props.id,
-      name: props.name, // 방 이름
+    const newChat: postChat = {
+      writerId: myId.value ?? 0,
+      // TODO : 채팅방으로 들어온 경우는 props.id 하면 roomId로 넘어가는데 매물 리스트에서 들어온 경우는 이렇게 넘기면 안됨;;;
+      roomId: roomId.value ?? 0,
       msg: msg.value.trim(),
     }
     console.log('newChat 전송하는 정보 : ', newChat)
@@ -91,13 +98,12 @@ function handleButtonClick() {
       body: JSON.stringify(newChat),
     })
     // 채팅을 chatStore에 추가
-    chatStore.chats.push(newChat)
+    // chatStore.chats.push(newChat)
     // 메시지 입력칸 초기화
     msg.value = null
 
     nextTick(() => {
       if (chatContainer.value) {
-        console.log('채팅 전송됨! 스크롤바 이동!')
         chatContainer.value.scrollTop = chatContainer.value.scrollHeight
       }
     })
@@ -106,20 +112,16 @@ function handleButtonClick() {
   }
 }
 // TODO : 날짜 포멧팅 과정 다시
-// function formatDate(dateTime: string) {
-//   const today = dayjs()
-//   const inputDate = dayjs(dateTime)
+function formatDate(dateTime: string): string {
+  const date = new Date(dateTime)
+  // const year = date.getFullYear()
+  // const month = String(date.getMonth() + 1).padStart(2, '0') // 1월은 0부터 시작하므로 +1 해줍니다.
+  // const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
 
-//   if (inputDate.isSame(today, 'day')) {
-//     return inputDate.format('HH:mm')
-//   }
-
-//   if (inputDate.isSame(today.subtract(1, 'day'), 'day')) {
-//     return '어제'
-//   }
-
-//   return inputDate.format('YYYY.MM.DD')
-// }
+  return `${hours}:${minutes}`
+}
 </script>
 
 <template>
@@ -139,7 +141,7 @@ function handleButtonClick() {
             {{ chat.writerName }}
           </h3>
           <p>{{ chat.msg }}</p>
-          <!-- <p>{{ formatDate(chat.createTime) }}</p> -->
+          <p>{{ formatDate(chat.createdDate) }}</p>
         </div>
       </div>
     </div>

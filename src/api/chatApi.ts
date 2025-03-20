@@ -5,6 +5,7 @@ export const fetchChats = async function fetchData(myId: number, from: string, i
     console.log('chatlist에서 옴!!!')
     apiUrl = `http://localhost:8080/chatmsg/find/list/${id}` // 채팅방 아이디
   } else {
+    console.log('매물 상세보기에서 채팅방으로 넘어온 경우!!!')
     apiUrl = `http://localhost:8080/chatmsg/apt/find/list/${id}?myId=${myId}` // 매물 아이디
   }
 
