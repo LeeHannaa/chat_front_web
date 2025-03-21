@@ -9,6 +9,7 @@ export interface Chat {
   msg?: string
 }
 export interface postChat {
+  writerName: string
   writerId: number
   roomId: number
   msg?: string

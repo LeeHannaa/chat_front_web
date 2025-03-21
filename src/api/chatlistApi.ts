@@ -21,9 +21,9 @@ export const fetchChatList = async (myId: number) => {
   }
 }
 
-export const fetchChatDelete = async (roomId: number) => {
+export const fetchChatDelete = async (roomId: number, myId: number) => {
   try {
-    const url = new URL(`http://localhost:8080/chat/delete/${roomId}`)
+    const url = new URL(`http://localhost:8080/chat/delete/${roomId}?myId=${myId}`)
 
     const response = await fetch(url.toString(), {
       method: 'DELETE',

@@ -2,20 +2,36 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchChatList, fetchChatDelete } from '../api/chatlistApi'
+import { fetchUserInfo } from '../api/userApi'
 import { useChatListStore } from '../stores/chatlist'
 
 const router = useRouter()
 const chatStore = useChatListStore()
 const myId = ref<number | null>(null)
+const myName = ref<string | null>(null)
 
 async function getChatList() {
   if (myId.value === null) return
   try {
+    getUserInfo() // 이름 로컬에 저장
     const data = await fetchChatList(myId.value) // 임시 myId 넣기
     if (data) {
       chatStore.chatList = []
       chatStore.setChatList(data)
       console.log('채팅 목록:', data)
+    }
+  } catch (err) {
+    console.error(err)
+  }
+}
+// TODO : user 정보 받아오기
+async function getUserInfo() {
+  if (myId.value === null) return
+  try {
+    const data = await fetchUserInfo(myId.value) // 임시 myId 넣기
+    if (data) {
+      localStorage.setItem('userName', data.name)
+      myName.value = localStorage.getItem('userName')
     }
   } catch (err) {
     console.error(err)
@@ -33,6 +49,7 @@ onMounted(() => {
   const storedId = localStorage.getItem('userId')
   if (storedId) {
     myId.value = Number(storedId)
+
     getChatList()
   }
   if (chatStore.chatList.length > 0) {
@@ -62,7 +79,7 @@ async function handleDeleteClick(roomId: number, event: { stopPropagation: () =>
   event.stopPropagation()
   try {
     // TODO : 삭제할 때 카산드라 db에 있는 채팅 내용은 삭제가 안됨..
-    await fetchChatDelete(roomId)
+    await fetchChatDelete(roomId, myId.value ?? 0)
     console.log('삭제 완료!!')
     getChatList()
   } catch (err) {

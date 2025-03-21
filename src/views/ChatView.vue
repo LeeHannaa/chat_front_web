@@ -19,6 +19,7 @@ let websocketClient: Client
 
 const chatStore = useChatStore()
 const myId = ref<number | null>(null)
+const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
@@ -32,25 +33,25 @@ async function getChats() {
     const data = await fetchChats(myId.value, props.from, props.id)
     if (data) {
       chatStore.chats = []
-      // TODO : 새로 만들어진 방이면 set하지 않고 roomId만 따로 저장하기
-
       if (data[0]?.body && data[0].body[0]?.id !== null) {
+        // 기존에 존재하던 대화방
         chatStore.setChats(data[0]?.body || [])
         roomId.value = data[0]?.body[0]?.roomId
-        console.log('채팅 내역:', chatStore.chats)
+        console.log('채팅방 아이디 : ', roomId.value, '\n 채팅 내역:', chatStore.chats)
       } else {
         // 방이 새로 만들어진 경우에는 setChats를 하지 않음
         roomId.value = data[0]?.body[0]?.roomId || null
         console.log('처음 방 생성!! 방 아이디 : ', roomId)
       }
+      connect() // 웹소켓 연결
     }
   } catch (err) {
     console.error(err)
   }
 }
 onMounted(() => {
-  connect() // 웹소켓 연결
   myId.value = Number(localStorage.getItem('userId'))
+  myName.value = localStorage.getItem('userName')
   console.log('myId : ', myId.value)
   if (isNaN(myId.value) || myId.value === null) {
     console.error('사용자 ID가 없습니다.')
@@ -72,9 +73,19 @@ function connect() {
     },
     onConnect: () => {
       console.log('웹소켓 연결 성공!')
-      // TODO : 연결 후 구독 및 메시지 처리
-      websocketClient.subscribe('/topic/message', (message) => {
-        console.log('구독 메시지:', message)
+      console.log('roomId.value : ', roomId.value)
+      websocketClient.subscribe(`/topic/chatroom/${roomId.value ?? 0}`, (message) => {
+        const parsedMessage = JSON.parse(message.body)
+        const recieveChat: Chat = {
+          id: parsedMessage.id,
+          writerName: parsedMessage.writerName,
+          writerId: parsedMessage.writerId,
+          roomId: parsedMessage.roomId,
+          msg: parsedMessage.msg,
+          createdDate: parsedMessage.createdDate,
+        }
+        chatStore.chats.push(recieveChat)
+        console.log('구독 메시지:', message.body)
       })
     },
     onStompError: (frame) => {
@@ -85,19 +96,19 @@ function connect() {
 }
 
 function handleButtonClick() {
+  // console.log('메시지 보내기 전 사용자 이름 확인 : ', myName.value)
   if (msg.value && msg.value.trim() !== '') {
     const newChat: postChat = {
+      writerName: myName.value ?? '',
       writerId: myId.value ?? 0,
       roomId: roomId.value ?? 0,
       msg: msg.value.trim(),
     }
-    console.log('newChat 전송하는 정보 : ', newChat)
+    // console.log('newChat 전송하는 정보 : ', newChat)
     websocketClient.publish({
       destination: '/app/message',
       body: JSON.stringify(newChat),
     })
-    // TODO : 채팅을 chatStore에 추가
-    // chatStore.chats.push(newChat)
     // 메시지 입력칸 초기화
     msg.value = null
 
