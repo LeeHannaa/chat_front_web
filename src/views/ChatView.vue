@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, nextTick } from 'vue'
+import { onMounted, ref, nextTick, onUnmounted } from 'vue'
 import { fetchChats } from '../api/chatApi'
 import { defineProps } from 'vue'
 import { type Chat, type postChat, useChatStore } from '../stores/chat'
@@ -16,6 +16,7 @@ const props = defineProps<{
 
 import { Client } from '@stomp/stompjs'
 let websocketClient: Client
+let subscription: any = null
 
 const chatStore = useChatStore()
 const myId = ref<number | null>(null)
@@ -23,6 +24,14 @@ const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
+
+function moveScroll() {
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    }
+  })
+}
 
 async function getChats() {
   if (myId.value === null) {
@@ -38,6 +47,7 @@ async function getChats() {
         chatStore.setChats(data[0]?.body || [])
         roomId.value = data[0]?.body[0]?.roomId
         console.log('채팅방 아이디 : ', roomId.value, '\n 채팅 내역:', chatStore.chats)
+        moveScroll()
       } else {
         // 방이 새로 만들어진 경우에는 setChats를 하지 않음
         roomId.value = data[0]?.body[0]?.roomId || null
@@ -53,15 +63,15 @@ onMounted(() => {
   myId.value = Number(localStorage.getItem('userId'))
   myName.value = localStorage.getItem('userName')
   console.log('myId : ', myId.value)
-  if (isNaN(myId.value) || myId.value === null) {
-    console.error('사용자 ID가 없습니다.')
-    return
-  }
   getChats()
 })
 
 function connect() {
   const url = 'ws://localhost:8080/ws-stomp'
+  if (websocketClient && websocketClient.active) {
+    console.log('이미 연결된 웹소켓입니다.')
+    return
+  }
 
   websocketClient = new Client({
     brokerURL: url,
@@ -74,19 +84,29 @@ function connect() {
     onConnect: () => {
       console.log('웹소켓 연결 성공!')
       console.log('roomId.value : ', roomId.value)
-      websocketClient.subscribe(`/topic/chatroom/${roomId.value ?? 0}`, (message) => {
-        const parsedMessage = JSON.parse(message.body)
-        const recieveChat: Chat = {
-          id: parsedMessage.id,
-          writerName: parsedMessage.writerName,
-          writerId: parsedMessage.writerId,
-          roomId: parsedMessage.roomId,
-          msg: parsedMessage.msg,
-          createdDate: parsedMessage.createdDate,
-        }
-        chatStore.chats.push(recieveChat)
-        console.log('구독 메시지:', message.body)
-      })
+
+      // 기존 구독이 있으면 해제
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+
+      subscription = websocketClient.subscribe(
+        `/topic/chatroom/${roomId.value ?? 0}`,
+        (message) => {
+          const parsedMessage = JSON.parse(message.body)
+          const recieveChat: Chat = {
+            id: parsedMessage.id,
+            writerName: parsedMessage.writerName,
+            writerId: parsedMessage.writerId,
+            roomId: parsedMessage.roomId,
+            msg: parsedMessage.msg,
+            createdDate: parsedMessage.createdDate,
+          }
+          chatStore.chats.push(recieveChat)
+          console.log('구독 메시지:', message.body)
+          moveScroll()
+        },
+      )
     },
     onStompError: (frame) => {
       console.error('STOMP 오류:', frame)
@@ -94,6 +114,13 @@ function connect() {
   })
   websocketClient.activate()
 }
+
+onUnmounted(() => {
+  if (websocketClient) {
+    websocketClient.deactivate()
+    console.log('웹소켓 연결 해제')
+  }
+})
 
 function handleButtonClick() {
   // console.log('메시지 보내기 전 사용자 이름 확인 : ', myName.value)
@@ -111,12 +138,6 @@ function handleButtonClick() {
     })
     // 메시지 입력칸 초기화
     msg.value = null
-
-    nextTick(() => {
-      if (chatContainer.value) {
-        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-      }
-    })
   } else {
     console.log('빈 메시지는 전송할 수 없습니다.')
   }
