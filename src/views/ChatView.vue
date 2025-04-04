@@ -3,6 +3,7 @@ import { onMounted, ref, nextTick, onUnmounted } from 'vue'
 import { fetchChats } from '../api/chatApi'
 import { defineProps } from 'vue'
 import { type Chat, type postChat, useChatStore } from '../stores/chat'
+import { formatDate } from '../plugins/formatDate'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 
@@ -141,17 +142,6 @@ function handleButtonClick() {
   } else {
     console.log('빈 메시지는 전송할 수 없습니다.')
   }
-}
-// TODO : 날짜 포멧팅 과정 다시
-function formatDate(dateTime: string): string {
-  const date = new Date(dateTime)
-  // const year = date.getFullYear()
-  // const month = String(date.getMonth() + 1).padStart(2, '0') // 1월은 0부터 시작하므로 +1 해줍니다.
-  // const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-
-  return `${hours}:${minutes}`
 }
 </script>
 

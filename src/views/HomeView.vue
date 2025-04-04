@@ -79,7 +79,7 @@ async function handleDeleteClick(roomId: number, event: { stopPropagation: () =>
   event.stopPropagation()
   try {
     // TODO : 삭제할 때 카산드라 db에 있는 채팅 내용은 삭제가 안됨..
-    await fetchChatDelete(roomId, myId.value ?? 0)
+    await fetchChatDelete(roomId)
     console.log('삭제 완료!!')
     getChatList()
   } catch (err) {

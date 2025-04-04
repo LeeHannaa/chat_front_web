@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 
-interface ChatRoom {
+export interface ChatRoom {
   id: number
   name: string
   lastMsg?: string
+  updateLastMsgTime?: string
 }
 
 export const useChatListStore = defineStore('chatlist', {
