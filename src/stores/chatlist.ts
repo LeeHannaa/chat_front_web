@@ -4,7 +4,8 @@ export interface ChatRoom {
   id: number
   name: string
   lastMsg?: string
-  updateLastMsgTime?: string
+  updateLastMsgTime?: Date
+  unreadCount?: number
 }
 
 export const useChatListStore = defineStore('chatlist', {
@@ -13,7 +14,10 @@ export const useChatListStore = defineStore('chatlist', {
   }),
   actions: {
     setChatList(newChatList: ChatRoom[]) {
-      this.chatList = newChatList
+      this.chatList = newChatList.map((chat) => ({
+        ...chat,
+        updateLastMsgTime: chat.updateLastMsgTime ? new Date(chat.updateLastMsgTime) : undefined,
+      }))
     },
   },
 })

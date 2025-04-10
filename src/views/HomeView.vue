@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchChatList, fetchChatDelete } from '../api/chatlistApi'
 import { fetchUserInfo } from '../api/userApi'
 import { useChatListStore } from '../stores/chatlist'
+import { formatDate } from '../plugins/formatDate'
 
 const router = useRouter()
 const chatStore = useChatListStore()
@@ -20,11 +21,77 @@ async function getChatList() {
       chatStore.setChatList(data)
       console.log('채팅 목록:', data)
     }
+    connectSocket()
   } catch (err) {
     console.error(err)
   }
 }
-// TODO : user 정보 받아오기
+
+import { Client } from '@stomp/stompjs'
+let websocketClient: Client
+let subscription: any = null
+
+async function connectSocket() {
+  // TODO : 소켓 연결
+  const url = 'ws://localhost:8080/ws-stomp'
+  if (websocketClient && websocketClient.active) {
+    websocketClient.deactivate()
+    console.log('이미 연결된 웹소켓 연결 취소.')
+  }
+
+  websocketClient = new Client({
+    brokerURL: url,
+    debug: (str) => {
+      console.log(str)
+    },
+    onConnect: () => {
+      console.log('채팅리스트 웹소켓 연결 성공!')
+
+      // 기존 구독이 있으면 해제
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+
+      subscription = websocketClient.subscribe(`/topic/chatlist/${myId.value}`, (message) => {
+        try {
+          const parsedMessage = JSON.parse(message.body)
+          console.log('채팅새로옴!!', parsedMessage)
+
+          const index = chatStore.chatList.findIndex((chat) => chat.id === parsedMessage.roomId)
+          if (index !== -1) {
+            // 이미 있는 채팅방: 정보 업데이트
+            chatStore.chatList[index] = {
+              ...chatStore.chatList[index],
+              lastMsg: parsedMessage.msg,
+              updateLastMsgTime: new Date(parsedMessage.updateLastMsgTime ?? Date.now()),
+              unreadCount: parsedMessage.unreadCount,
+            }
+          } else {
+            // 새로운 채팅방 추가
+            chatStore.chatList.push({
+              id: parsedMessage.roomId,
+              name: parsedMessage.name,
+              lastMsg: parsedMessage.msg,
+              updateLastMsgTime: new Date(parsedMessage.updateLastMsgTime ?? Date.now()),
+              unreadCount: parsedMessage.unreadCount,
+            })
+          }
+          // 시간 기준으로 정렬
+          chatStore.chatList.sort(
+            (a, b) => b.updateLastMsgTime!.getTime() - a.updateLastMsgTime!.getTime(),
+          )
+        } catch (err) {
+          console.error('메시지 파싱 실패:', err)
+        }
+      })
+    },
+    onStompError: (frame) => {
+      console.error('STOMP 오류:', frame)
+    },
+  })
+  websocketClient.activate()
+}
+
 async function getUserInfo() {
   if (myId.value === null) return
   try {
@@ -49,7 +116,6 @@ onMounted(() => {
   const storedId = localStorage.getItem('userId')
   if (storedId) {
     myId.value = Number(storedId)
-
     getChatList()
   }
   if (chatStore.chatList.length > 0) {
@@ -62,6 +128,13 @@ onMounted(() => {
       localStorage.removeItem('userId')
     }
   })
+})
+
+onUnmounted(() => {
+  if (websocketClient) {
+    websocketClient.deactivate()
+    console.log('웹소켓 연결 해제')
+  }
 })
 
 function handleChatClick(chat: { id: number; name: string }) {
@@ -105,8 +178,17 @@ async function handleDeleteClick(roomId: number, event: { stopPropagation: () =>
           @click="handleChatClick(chat)"
           style="cursor: pointer"
         >
-          <h3>[ {{ chat.name }} ] 채팅방</h3>
+          <div style="display: flex">
+            <h3 style="margin-right: 20px; margin-left: 20px">[ {{ chat.name }} ] 채팅방</h3>
+            <div class="unreadBox" v-if="chat.unreadCount && chat.unreadCount > 0">
+              {{ chat.unreadCount }}
+            </div>
+          </div>
+
           <p>{{ chat.lastMsg || '메시지가 없습니다' }}</p>
+          <p style="font-size: 8px; margin-left: 70%">
+            {{ chat.updateLastMsgTime ? formatDate(chat.updateLastMsgTime.toString()) : '' }}
+          </p>
           <button class="deleteBT" @click="handleDeleteClick(chat.id, $event)">나가기</button>
         </div>
       </div>
@@ -142,5 +224,17 @@ async function handleDeleteClick(roomId: number, event: { stopPropagation: () =>
   background: #8ec78bff;
   border: none;
   border-radius: 10px;
+}
+.unreadBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: red;
+  color: white;
+  border-radius: 45%;
+  font-size: 12px;
 }
 </style>

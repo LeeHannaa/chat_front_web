@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, nextTick, onUnmounted } from 'vue'
-import { fetchChats } from '../api/chatApi'
+import { fetchChats, fetchUnreadCountByRoom } from '../api/chatApi'
 import { defineProps } from 'vue'
 import { type Chat, type postChat, useChatStore } from '../stores/chat'
 import { formatDate } from '../plugins/formatDate'
@@ -18,6 +18,7 @@ const props = defineProps<{
 import { Client } from '@stomp/stompjs'
 let websocketClient: Client
 let subscription: any = null
+let unreadCount: number
 
 const chatStore = useChatStore()
 const myId = ref<number | null>(null)
@@ -25,6 +26,7 @@ const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
+const userInRoom = ref<boolean | null>(false)
 
 function moveScroll() {
   nextTick(() => {
@@ -54,7 +56,16 @@ async function getChats() {
         roomId.value = data[0]?.body[0]?.roomId || null
         console.log('처음 방 생성!! 방 아이디 : ', roomId)
       }
+      unreadCount = await fetchUnreadCountByRoom(roomId?.value ?? 0)
       connect() // 웹소켓 연결
+
+      const safeUnreadCount = unreadCount ?? 0
+      const start = Math.max(chatStore.chats.length - safeUnreadCount, 0)
+      for (let i = chatStore.chats.length - 1; i >= start; i--) {
+        if (chatStore.chats[i]) {
+          chatStore.chats[i].isRead = false
+        }
+      }
     }
   } catch (err) {
     console.error(err)
@@ -78,6 +89,8 @@ function connect() {
     brokerURL: url,
     connectHeaders: {
       // 'Authorization': 'Bearer yourToken'
+      roomId: String(roomId.value),
+      myId: String(myId.value),
     },
     debug: (str) => {
       console.log(str)
@@ -95,17 +108,44 @@ function connect() {
         `/topic/chatroom/${roomId.value ?? 0}`,
         (message) => {
           const parsedMessage = JSON.parse(message.body)
-          const recieveChat: Chat = {
-            id: parsedMessage.id,
-            writerName: parsedMessage.writerName,
-            writerId: parsedMessage.writerId,
-            roomId: parsedMessage.roomId,
-            msg: parsedMessage.msg,
-            createdDate: parsedMessage.createdDate,
+
+          if (parsedMessage.type === 'CHAT') {
+            const recieveChat: Chat = {
+              id: parsedMessage.message.id,
+              writerName: parsedMessage.message.writerName,
+              writerId: parsedMessage.message.writerId,
+              roomId: parsedMessage.message.roomId,
+              msg: parsedMessage.message.msg,
+              createdDate: parsedMessage.message.createdDate,
+            }
+            if (parsedMessage.message.count > 1) {
+              userInRoom.value = true
+              recieveChat.isRead = true
+            } else {
+              userInRoom.value = false
+              recieveChat.isRead = false
+            }
+            chatStore.chats.push(recieveChat)
+            console.log('💬 채팅 메시지 수신:', message.body)
+            moveScroll()
+          } else if (parsedMessage.type === 'INFO') {
+            if (parsedMessage.message === '상대방 입장') {
+              console.log('🟢 상대방 입장!')
+              // 여기서 필요한 처리 (예: 읽음 처리, UI 변경 등)
+              userInRoom.value = true
+              for (let i = chatStore.chats.length - 1; i > 0; i--) {
+                if (chatStore.chats[i].isRead == true) break
+                chatStore.chats[i].isRead = true
+              }
+            }
+          } else if (parsedMessage.type === 'OUT') {
+            if (parsedMessage.message === '상대방 퇴장') {
+              console.log('🟢 상대방 퇴장!!!!!!!')
+              userInRoom.value = false
+            }
+          } else {
+            console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
           }
-          chatStore.chats.push(recieveChat)
-          console.log('구독 메시지:', message.body)
-          moveScroll()
         },
       )
     },
@@ -163,6 +203,9 @@ function handleButtonClick() {
           </h3>
           <p>{{ chat.msg }}</p>
           <p>{{ formatDate(chat.createdDate) }}</p>
+          <span v-if="chat.writerId == myId" class="isread">
+            {{ userInRoom ? '읽음' : chat.isRead ? '읽음' : '안읽음' }}
+          </span>
         </div>
       </div>
     </div>
@@ -256,5 +299,9 @@ function handleButtonClick() {
   background: #8ec78bff;
   border: none;
   border-radius: 10px;
+}
+.isread {
+  font-size: 8px;
+  color: gray;
 }
 </style>

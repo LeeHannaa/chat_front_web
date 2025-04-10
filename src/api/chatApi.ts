@@ -26,3 +26,25 @@ export const fetchChats = async function fetchData(myId: number, from: string, i
     throw error // 에러를 상위 함수로 전달
   }
 }
+
+export const fetchUnreadCountByRoom = async function fetchData(roomId: number) {
+  const apiUrl = `http://localhost:8080/chat/unread/count?roomId=${roomId}`
+
+  try {
+    const response = await fetch(apiUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!response.ok) {
+      throw new Error('Network response was not ok')
+    }
+    const data = await response.json()
+    console.log('방입장 시 상대가 읽지않은 메시지 수 : ', data)
+    return data // 응답 데이터를 반환
+  } catch (error) {
+    console.error('API 요청 실패:', error)
+    throw error // 에러를 상위 함수로 전달
+  }
+}

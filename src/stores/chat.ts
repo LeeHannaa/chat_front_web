@@ -6,7 +6,9 @@ export interface Chat {
   writerName: string
   createdDate: string
   roomId: number
+  count?: number
   msg?: string
+  isRead?: boolean
 }
 export interface postChat {
   writerName: string
@@ -21,7 +23,10 @@ export const useChatStore = defineStore('chat', {
   }),
   actions: {
     setChats(newChats: Chat[]) {
-      this.chats = newChats
+      this.chats = newChats.map((chat) => ({
+        ...chat,
+        isRead: chat.isRead ?? true,
+      }))
     },
   },
 })
