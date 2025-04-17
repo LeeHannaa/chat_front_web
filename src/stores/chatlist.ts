@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
 export interface ChatRoom {
-  id: number
+  roomId: number
   name: string
   lastMsg?: string
   updateLastMsgTime?: Date

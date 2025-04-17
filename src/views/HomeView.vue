@@ -19,6 +19,9 @@ async function getChatList() {
     if (data) {
       chatStore.chatList = []
       chatStore.setChatList(data)
+      chatStore.chatList.sort(
+        (a, b) => b.updateLastMsgTime!.getTime() - a.updateLastMsgTime!.getTime(),
+      )
       console.log('채팅 목록:', data)
     }
     connectSocket()
@@ -57,7 +60,7 @@ async function connectSocket() {
           const parsedMessage = JSON.parse(message.body)
           console.log('채팅새로옴!!', parsedMessage)
 
-          const index = chatStore.chatList.findIndex((chat) => chat.id === parsedMessage.roomId)
+          const index = chatStore.chatList.findIndex((chat) => chat.roomId === parsedMessage.roomId)
           if (index !== -1) {
             // 이미 있는 채팅방: 정보 업데이트
             chatStore.chatList[index] = {
@@ -69,7 +72,7 @@ async function connectSocket() {
           } else {
             // 새로운 채팅방 추가
             chatStore.chatList.push({
-              id: parsedMessage.roomId,
+              roomId: parsedMessage.roomId,
               name: parsedMessage.name,
               lastMsg: parsedMessage.msg,
               updateLastMsgTime: new Date(parsedMessage.updateLastMsgTime ?? Date.now()),
@@ -137,11 +140,11 @@ onUnmounted(() => {
   }
 })
 
-function handleChatClick(chat: { id: number; name: string }) {
+function handleChatClick(chat: { roomId: number; name: string }) {
   router.push({
     path: '/chat',
     query: {
-      id: Number(chat.id),
+      id: Number(chat.roomId),
       name: chat.name,
       from: 'chatlist',
     },
@@ -152,7 +155,7 @@ async function handleDeleteClick(roomId: number, event: { stopPropagation: () =>
   event.stopPropagation()
   try {
     // TODO : 삭제할 때 카산드라 db에 있는 채팅 내용은 삭제가 안됨..
-    await fetchChatDelete(roomId)
+    await fetchChatDelete(roomId, myId.value!)
     console.log('삭제 완료!!')
     getChatList()
   } catch (err) {
@@ -174,7 +177,7 @@ async function handleDeleteClick(roomId: number, event: { stopPropagation: () =>
         <div
           class="chat"
           v-for="chat in chatStore.chatList"
-          :key="chat.id"
+          :key="chat.roomId"
           @click="handleChatClick(chat)"
           style="cursor: pointer"
         >
@@ -189,7 +192,7 @@ async function handleDeleteClick(roomId: number, event: { stopPropagation: () =>
           <p style="font-size: 8px; margin-left: 70%">
             {{ chat.updateLastMsgTime ? formatDate(chat.updateLastMsgTime.toString()) : '' }}
           </p>
-          <button class="deleteBT" @click="handleDeleteClick(chat.id, $event)">나가기</button>
+          <button class="deleteBT" @click="handleDeleteClick(chat.roomId, $event)">나가기</button>
         </div>
       </div>
       <p v-else>채팅 목록이 없습니다.</p>

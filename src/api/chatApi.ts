@@ -3,7 +3,7 @@ export const fetchChats = async function fetchData(myId: number, from: string, i
 
   if (from === 'chatlist') {
     console.log('chatlist에서 옴!!!')
-    apiUrl = `http://localhost:8080/chatmsg/find/list/${id}` // 채팅방 아이디
+    apiUrl = `http://localhost:8080/chatmsg/find/list/${id}?myId=${myId}` // 채팅방 아이디
   } else {
     console.log('매물 상세보기에서 채팅방으로 넘어온 경우!!!')
     apiUrl = `http://localhost:8080/chatmsg/apt/find/list/${id}?myId=${myId}` // 매물 아이디
@@ -43,6 +43,46 @@ export const fetchUnreadCountByRoom = async function fetchData(roomId: number) {
     const data = await response.json()
     console.log('방입장 시 상대가 읽지않은 메시지 수 : ', data)
     return data // 응답 데이터를 반환
+  } catch (error) {
+    console.error('API 요청 실패:', error)
+    throw error // 에러를 상위 함수로 전달
+  }
+}
+
+export const deleteChatMessageToMe = async (msgId: string, myId: number) => {
+  try {
+    const url = new URL(`http://localhost:8080/chatmsg/delete/me/${msgId}?myId=${myId}`)
+
+    const response = await fetch(url.toString(), {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok')
+    }
+  } catch (error) {
+    console.error('API 요청 실패:', error)
+    throw error // 에러를 상위 함수로 전달
+  }
+}
+
+export const deleteChatMessageToAll = async (msgId: string, myId: number) => {
+  try {
+    const url = new URL(`http://localhost:8080/chatmsg/delete/all/${msgId}?myId=${myId}`)
+
+    const response = await fetch(url.toString(), {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok')
+    }
   } catch (error) {
     console.error('API 요청 실패:', error)
     throw error // 에러를 상위 함수로 전달

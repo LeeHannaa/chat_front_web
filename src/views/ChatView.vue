@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref, nextTick, onUnmounted } from 'vue'
-import { fetchChats, fetchUnreadCountByRoom } from '../api/chatApi'
+import {
+  deleteChatMessageToAll,
+  deleteChatMessageToMe,
+  fetchChats,
+  fetchUnreadCountByRoom,
+} from '../api/chatApi'
 import { defineProps } from 'vue'
 import { type Chat, type postChat, useChatStore } from '../stores/chat'
 import { formatDate } from '../plugins/formatDate'
@@ -43,21 +48,22 @@ async function getChats() {
   }
   try {
     const data = await fetchChats(myId.value, props.from, props.id)
+    console.log('채팅 내역 받아온 데이터 확인 : ', data)
     if (data) {
       chatStore.chats = []
-      if (data[0]?.body && data[0].body[0]?.id !== null) {
+      if (data[0] && data[0]?.id !== null) {
         // 기존에 존재하던 대화방
-        chatStore.setChats(data[0]?.body || [])
-        roomId.value = data[0]?.body[0]?.roomId
+        chatStore.setChats(data || [])
+        roomId.value = data[0]?.roomId
         console.log('채팅방 아이디 : ', roomId.value, '\n 채팅 내역:', chatStore.chats)
         moveScroll()
       } else {
         // 방이 새로 만들어진 경우에는 setChats를 하지 않음
-        roomId.value = data[0]?.body[0]?.roomId || null
+        roomId.value = data[0]?.roomId || null
         console.log('처음 방 생성!! 방 아이디 : ', roomId)
       }
-      unreadCount = await fetchUnreadCountByRoom(roomId?.value ?? 0)
       connect() // 웹소켓 연결
+      unreadCount = await fetchUnreadCountByRoom(roomId?.value ?? 0)
 
       const safeUnreadCount = unreadCount ?? 0
       const start = Math.max(chatStore.chats.length - safeUnreadCount, 0)
@@ -116,7 +122,7 @@ function connect() {
               writerId: parsedMessage.message.writerId,
               roomId: parsedMessage.message.roomId,
               msg: parsedMessage.message.msg,
-              createdDate: parsedMessage.message.createdDate,
+              createdDate: String(new Date(parsedMessage.message.createdDate)),
             }
             if (parsedMessage.message.count > 1) {
               userInRoom.value = true
@@ -171,6 +177,7 @@ function handleButtonClick() {
       writerId: myId.value ?? 0,
       roomId: roomId.value ?? 0,
       msg: msg.value.trim(),
+      regDate: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString(),
     }
     // console.log('newChat 전송하는 정보 : ', newChat)
     websocketClient.publish({
@@ -181,6 +188,22 @@ function handleButtonClick() {
     msg.value = null
   } else {
     console.log('빈 메시지는 전송할 수 없습니다.')
+  }
+}
+
+async function deleteMessageToMe(msgId: string) {
+  await deleteChatMessageToMe(msgId, myId.value!)
+  const index = chatStore.chats.findIndex((chat) => chat.id === msgId)
+  if (index !== -1) {
+    chatStore.chats.splice(index, 1)
+  }
+}
+
+async function deleteMessageToAll(msgId: string) {
+  await deleteChatMessageToAll(msgId, myId.value!)
+  const index = chatStore.chats.findIndex((chat) => chat.id === msgId)
+  if (index !== -1) {
+    chatStore.chats[index].msg = '삭제된 메시지입니다.'
   }
 }
 </script>
@@ -203,9 +226,19 @@ function handleButtonClick() {
           </h3>
           <p>{{ chat.msg }}</p>
           <p>{{ formatDate(chat.createdDate) }}</p>
-          <span v-if="chat.writerId == myId" class="isread">
-            {{ userInRoom ? '읽음' : chat.isRead ? '읽음' : '안읽음' }}
-          </span>
+          <div>
+            <span v-if="chat.writerId == myId" class="isread">
+              {{ userInRoom ? '읽음' : chat.isRead ? '읽음' : '안읽음' }}
+            </span>
+            <button
+              class="deleteBT"
+              v-if="chat.writerId == myId"
+              @click="deleteMessageToAll(chat.id)"
+            >
+              전체 🗑️
+            </button>
+            <button class="deleteBT" @click="deleteMessageToMe(chat.id)">내 기기 🗑️</button>
+          </div>
         </div>
       </div>
     </div>
@@ -299,9 +332,21 @@ function handleButtonClick() {
   background: #8ec78bff;
   border: none;
   border-radius: 10px;
+  cursor: pointer;
 }
 .isread {
   font-size: 8px;
   color: gray;
+}
+
+.deleteBT {
+  margin: 1px;
+  font-size: 8px;
+  height: 20px;
+  max-width: 50px;
+  background: #c2b65dff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
 }
 </style>

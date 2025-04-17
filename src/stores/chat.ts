@@ -15,6 +15,7 @@ export interface postChat {
   writerId: number
   roomId: number
   msg?: string
+  regDate: string
 }
 
 export const useChatStore = defineStore('chat', {
