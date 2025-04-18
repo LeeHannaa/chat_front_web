@@ -73,7 +73,7 @@ async function connectSocket() {
             // 새로운 채팅방 추가
             chatStore.chatList.push({
               roomId: parsedMessage.roomId,
-              name: parsedMessage.name,
+              name: parsedMessage.chatName,
               lastMsg: parsedMessage.msg,
               updateLastMsgTime: new Date(parsedMessage.updateLastMsgTime ?? Date.now()),
               unreadCount: parsedMessage.unreadCount,
@@ -141,6 +141,7 @@ onUnmounted(() => {
 })
 
 function handleChatClick(chat: { roomId: number; name: string }) {
+  console.log('chat 페이지 넘어가기 전에 확인:!!!!! : ', chat.name)
   router.push({
     path: '/chat',
     query: {

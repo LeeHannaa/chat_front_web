@@ -149,6 +149,16 @@ function connect() {
               console.log('🟢 상대방 퇴장!!!!!!!')
               userInRoom.value = false
             }
+          } else if (parsedMessage.type === 'DELETE') {
+            const deleteMsgId = parsedMessage.messageId
+            console.log('🗑️ 해당 메시지 삭제!! : ', deleteMsgId)
+            const index = chatStore.chats.findIndex((msg) => msg.id === deleteMsgId)
+            if (index !== -1) {
+              chatStore.chats[index] = {
+                ...chatStore.chats[index],
+                msg: '삭제된 메시지입니다.',
+              }
+            }
           } else {
             console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
           }
@@ -174,6 +184,7 @@ function handleButtonClick() {
   if (msg.value && msg.value.trim() !== '') {
     const newChat: postChat = {
       writerName: myName.value ?? '',
+      chatName: props.name ?? '',
       writerId: myId.value ?? 0,
       roomId: roomId.value ?? 0,
       msg: msg.value.trim(),
@@ -204,6 +215,7 @@ async function deleteMessageToAll(msgId: string) {
   const index = chatStore.chats.findIndex((chat) => chat.id === msgId)
   if (index !== -1) {
     chatStore.chats[index].msg = '삭제된 메시지입니다.'
+    chatStore.chats[index].delete = true
   }
 }
 </script>
@@ -232,7 +244,7 @@ async function deleteMessageToAll(msgId: string) {
             </span>
             <button
               class="deleteBT"
-              v-if="chat.writerId == myId"
+              v-if="chat.writerId == myId && !chat.delete"
               @click="deleteMessageToAll(chat.id)"
             >
               전체 🗑️

@@ -8,10 +8,12 @@ export interface Chat {
   roomId: number
   count?: number
   msg?: string
+  delete?: boolean
   isRead?: boolean
 }
 export interface postChat {
   writerName: string
+  chatName: string
   writerId: number
   roomId: number
   msg?: string
