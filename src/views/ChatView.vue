@@ -202,6 +202,13 @@ function handleButtonClick() {
   }
 }
 
+function isWithin5Minutes(createDate: string): boolean {
+  const now = new Date()
+  const chatTime = new Date(createDate)
+  const diff = (now.getTime() - chatTime.getTime()) / 1000
+  return diff <= 300
+}
+
 async function deleteMessageToMe(msgId: string) {
   await deleteChatMessageToMe(msgId, myId.value!)
   const index = chatStore.chats.findIndex((chat) => chat.id === msgId)
@@ -244,7 +251,7 @@ async function deleteMessageToAll(msgId: string) {
             </span>
             <button
               class="deleteBT"
-              v-if="chat.writerId == myId && !chat.delete"
+              v-if="chat.writerId == myId && !chat.delete && isWithin5Minutes(chat.createdDate)"
               @click="deleteMessageToAll(chat.id)"
             >
               전체 🗑️
