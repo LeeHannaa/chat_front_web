@@ -46,35 +46,40 @@ async function getChats() {
     console.error('사용자 ID가 없습니다.')
     return
   }
-  try {
-    const data = await fetchChats(myId.value, props.from, props.id)
-    console.log('채팅 내역 받아온 데이터 확인 : ', data)
-    if (data) {
-      chatStore.chats = []
-      if (data[0] && data[0]?.id !== null) {
-        // 기존에 존재하던 대화방
-        chatStore.setChats(data || [])
-        roomId.value = data[0]?.roomId
-        console.log('채팅방 아이디 : ', roomId.value, '\n 채팅 내역:', chatStore.chats)
-        moveScroll()
-      } else {
-        // 방이 새로 만들어진 경우에는 setChats를 하지 않음
-        roomId.value = data[0]?.roomId || null
-        console.log('처음 방 생성!! 방 아이디 : ', roomId)
-      }
-      connect() // 웹소켓 연결
-      unreadCount = await fetchUnreadCountByRoom(roomId?.value ?? 0)
+  if (props.from == 'group') {
+    roomId.value = props.id
+    connect() // 웹소켓 연결
+  } else {
+    try {
+      const data = await fetchChats(myId.value, props.from, props.id)
+      console.log('채팅 내역 받아온 데이터 확인 : ', data)
+      if (data) {
+        chatStore.chats = []
+        if (data[0] && data[0]?.id !== null) {
+          // 기존에 존재하던 대화방
+          chatStore.setChats(data || [])
+          roomId.value = data[0]?.roomId
+          console.log('채팅방 아이디 : ', roomId.value, '\n 채팅 내역:', chatStore.chats)
+          moveScroll()
+        } else {
+          // 방이 새로 만들어진 경우에는 setChats를 하지 않음
+          roomId.value = data[0]?.roomId || null
+          console.log('처음 방 생성!! 방 아이디 : ', roomId)
+        }
+        connect() // 웹소켓 연결
+        unreadCount = await fetchUnreadCountByRoom(roomId?.value ?? 0)
 
-      const safeUnreadCount = unreadCount ?? 0
-      const start = Math.max(chatStore.chats.length - safeUnreadCount, 0)
-      for (let i = chatStore.chats.length - 1; i >= start; i--) {
-        if (chatStore.chats[i]) {
-          chatStore.chats[i].isRead = false
+        const safeUnreadCount = unreadCount ?? 0
+        const start = Math.max(chatStore.chats.length - safeUnreadCount, 0)
+        for (let i = chatStore.chats.length - 1; i >= start; i--) {
+          if (chatStore.chats[i]) {
+            chatStore.chats[i].isRead = false
+          }
         }
       }
+    } catch (err) {
+      console.error(err)
     }
-  } catch (err) {
-    console.error(err)
   }
 }
 onMounted(() => {

@@ -1,3 +1,5 @@
+import type { GroupChatRoom } from '@/views/GroupView.vue'
+
 export const fetchChats = async function fetchData(myId: number, from: string, id: number) {
   let apiUrl = ''
 
@@ -83,6 +85,28 @@ export const deleteChatMessageToAll = async (msgId: string, myId: number) => {
     if (!response.ok) {
       throw new Error('Network response was not ok')
     }
+  } catch (error) {
+    console.error('API 요청 실패:', error)
+    throw error // 에러를 상위 함수로 전달
+  }
+}
+
+export const postGroupChatRoomCreate = async function fetchData(groupChatRoom: GroupChatRoom) {
+  const apiUrl = `http://localhost:8080/chat/create/group`
+
+  try {
+    const response = await fetch(apiUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(groupChatRoom),
+    })
+    if (!response.ok) {
+      throw new Error('Network response was not ok')
+    }
+    const data = await response.json()
+    return data
   } catch (error) {
     console.error('API 요청 실패:', error)
     throw error // 에러를 상위 함수로 전달
