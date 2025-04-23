@@ -29,8 +29,8 @@ export const fetchChats = async function fetchData(myId: number, from: string, i
   }
 }
 
-export const fetchUnreadCountByRoom = async function fetchData(roomId: number) {
-  const apiUrl = `http://localhost:8080/chat/unread/count?roomId=${roomId}`
+export const fetchUnreadCountByRoom = async function fetchData(roomId: number, myId: number) {
+  const apiUrl = `http://localhost:8080/chat/unread/count/${roomId}?myId=${myId}`
 
   try {
     const response = await fetch(apiUrl.toString(), {

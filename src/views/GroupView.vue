@@ -76,7 +76,7 @@ async function handleGroupCreateClick() {
   router.push({
     path: '/chat',
     query: {
-      id: data.roomId,
+      id: data.id,
       name: data.name,
       from: 'group',
     },

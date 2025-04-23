@@ -23,7 +23,7 @@ const props = defineProps<{
 import { Client } from '@stomp/stompjs'
 let websocketClient: Client
 let subscription: any = null
-let unreadCount: number
+let unreadCountByMe: number
 
 const chatStore = useChatStore()
 const myId = ref<number | null>(null)
@@ -31,7 +31,6 @@ const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
-const userInRoom = ref<boolean | null>(false)
 
 function moveScroll() {
   nextTick(() => {
@@ -67,13 +66,14 @@ async function getChats() {
           console.log('처음 방 생성!! 방 아이디 : ', roomId)
         }
         connect() // 웹소켓 연결
-        unreadCount = await fetchUnreadCountByRoom(roomId?.value ?? 0)
+        // TODO : 내가 채팅방에 입장했을 때 안읽은 메시지 수 받아서 읽음 실시간 읽음처리 ui 수정
+        unreadCountByMe = await fetchUnreadCountByRoom(roomId?.value ?? 0, myId?.value ?? 0)
 
-        const safeUnreadCount = unreadCount ?? 0
+        const safeUnreadCount = unreadCountByMe ?? 0
         const start = Math.max(chatStore.chats.length - safeUnreadCount, 0)
         for (let i = chatStore.chats.length - 1; i >= start; i--) {
           if (chatStore.chats[i]) {
-            chatStore.chats[i].isRead = false
+            chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
           }
         }
       }
@@ -127,32 +127,28 @@ function connect() {
               writerId: parsedMessage.message.writerId,
               roomId: parsedMessage.message.roomId,
               msg: parsedMessage.message.msg,
+              unreadCount: parsedMessage.message.unreadCount,
               createdDate: String(new Date(parsedMessage.message.createdDate)),
-            }
-            if (parsedMessage.message.count > 1) {
-              userInRoom.value = true
-              recieveChat.isRead = true
-            } else {
-              userInRoom.value = false
-              recieveChat.isRead = false
             }
             chatStore.chats.push(recieveChat)
             console.log('💬 채팅 메시지 수신:', message.body)
             moveScroll()
           } else if (parsedMessage.type === 'INFO') {
-            if (parsedMessage.message === '상대방 입장') {
-              console.log('🟢 상대방 입장!')
-              // 여기서 필요한 처리 (예: 읽음 처리, UI 변경 등)
-              userInRoom.value = true
-              for (let i = chatStore.chats.length - 1; i > 0; i--) {
-                if (chatStore.chats[i].isRead == true) break
-                chatStore.chats[i].isRead = true
-              }
+            console.log('🟢 상대방 입장!, 읽음처리해야할 메시지 개수 : ', parsedMessage.message)
+            // 상대방 입장 시 상대가 해당 채팅방에서 읽지 않았던 메시지 개수만큼 정보 전달! 그거보고 unreadCount 감소처리
+            // 여기서 필요한 처리 (예: 읽음 처리, UI 변경 등)
+            const changeNumber = parseInt(parsedMessage.message)
+            for (
+              let i = chatStore.chats.length - 1;
+              i > chatStore.chats.length - changeNumber - 1;
+              i--
+            ) {
+              if (chatStore.chats[i].unreadCount == 0) break
+              chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
             }
           } else if (parsedMessage.type === 'OUT') {
             if (parsedMessage.message === '상대방 퇴장') {
               console.log('🟢 상대방 퇴장!!!!!!!')
-              userInRoom.value = false
             }
           } else if (parsedMessage.type === 'DELETE') {
             const deleteMsgId = parsedMessage.messageId
@@ -251,8 +247,8 @@ async function deleteMessageToAll(msgId: string) {
           <p>{{ chat.msg }}</p>
           <p>{{ formatDate(chat.createdDate) }}</p>
           <div>
-            <span v-if="chat.writerId == myId" class="isread">
-              {{ userInRoom ? '읽음' : chat.isRead ? '읽음' : '안읽음' }}
+            <span class="isread">
+              {{ chat.unreadCount == 0 ? '' : chat.unreadCount }}
             </span>
             <button
               class="deleteBT"
