@@ -9,6 +9,7 @@ export interface Chat {
   msg?: string
   delete?: boolean
   unreadCount?: number
+  type?: string
 }
 export interface postChat {
   writerName: string

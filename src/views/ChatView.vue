@@ -5,6 +5,7 @@ import {
   deleteChatMessageToMe,
   fetchChats,
   fetchUnreadCountByRoom,
+  postInviteUserInGroupChat,
 } from '../api/chatApi'
 import { defineProps } from 'vue'
 import { type Chat, type postChat, useChatStore } from '../stores/chat'
@@ -24,12 +25,16 @@ import { Client } from '@stomp/stompjs'
 let websocketClient: Client
 let subscription: any = null
 let unreadCountByMe: number
+let leaveUserId: number
 
 const chatStore = useChatStore()
 const myId = ref<number | null>(null)
 const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
+const leaveMessage = ref<string | null>(null)
+const inviteMessage = ref<string | null>(null)
+const showInviteButton = ref<boolean>(false)
 const chatContainer = ref<HTMLElement | null>(null)
 
 function moveScroll() {
@@ -53,7 +58,6 @@ async function getChats() {
       const data = await fetchChats(myId.value, props.from, props.id)
       console.log('채팅 내역 받아온 데이터 확인 : ', data)
       if (data) {
-        chatStore.chats = []
         if (data[0] && data[0]?.id !== null) {
           // 기존에 존재하던 대화방
           chatStore.setChats(data || [])
@@ -86,6 +90,7 @@ onMounted(() => {
   myId.value = Number(localStorage.getItem('userId'))
   myName.value = localStorage.getItem('userName')
   console.log('myId : ', myId.value)
+  chatStore.chats = []
   getChats()
 })
 
@@ -127,6 +132,7 @@ function connect() {
               writerId: parsedMessage.message.writerId,
               roomId: parsedMessage.message.roomId,
               msg: parsedMessage.message.msg,
+              type: parsedMessage.message.type,
               unreadCount: parsedMessage.message.unreadCount,
               createdDate: String(new Date(parsedMessage.message.createdDate)),
             }
@@ -160,6 +166,28 @@ function connect() {
                 msg: '삭제된 메시지입니다.',
               }
             }
+          } else if (parsedMessage.type === 'LEAVE') {
+            leaveUserId = parsedMessage.leaveUserId
+            const leaveUserName = parsedMessage.leaveUserName
+            const changeNumber = parsedMessage.msgToReadCount
+            console.log(
+              '🗑️ 해당 유저 나감!! : ',
+              leaveUserId,
+              ' : ',
+              leaveUserName,
+              '읽음처리 수 : ',
+              changeNumber,
+            )
+            for (
+              let i = chatStore.chats.length - 1;
+              i > chatStore.chats.length - changeNumber - 1;
+              i--
+            ) {
+              if (chatStore.chats[i].unreadCount == 0) break
+              chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
+            }
+            leaveMessage.value = `${leaveUserName}님이 방을 나갔습니다.`
+            moveScroll()
           } else {
             console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
           }
@@ -226,6 +254,13 @@ async function deleteMessageToAll(msgId: string) {
     chatStore.chats[index].delete = true
   }
 }
+
+async function clickInviteUser() {
+  const response = await postInviteUserInGroupChat(leaveUserId, roomId.value ?? 0)
+  if (response) {
+    inviteMessage.value = `${response.user.userName}님이 방에 들어왔습니다.`
+  }
+}
 </script>
 
 <template>
@@ -240,7 +275,7 @@ async function deleteMessageToAll(msgId: string) {
           'other-chat': chat.writerId !== myId,
         }"
       >
-        <div class="chat-content">
+        <div v-if="chat.type === 'TEXT'" class="chat-content">
           <h3 v-if="chat.writerId !== myId">
             {{ chat.writerName }}
           </h3>
@@ -261,6 +296,12 @@ async function deleteMessageToAll(msgId: string) {
           </div>
         </div>
       </div>
+      <p v-if="leaveMessage" class="leave-message" @click="showInviteButton = true">
+        {{ leaveMessage }}
+      </p>
+      <button v-if="showInviteButton" class="invite-button" @click="clickInviteUser">
+        다시 초대하기
+      </button>
     </div>
     <div class="inputBox">
       <input
@@ -322,6 +363,27 @@ async function deleteMessageToAll(msgId: string) {
   margin: 5px 0;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.leave-message {
+  margin-bottom: 10px;
+  padding: 10px;
+  font-size: 13px;
+  color: #856404;
+  text-align: center;
+}
+
+.invite-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.invite-button:hover {
+  background-color: #0056b3;
 }
 
 .inputBox {

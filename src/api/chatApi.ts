@@ -112,3 +112,28 @@ export const postGroupChatRoomCreate = async function fetchData(groupChatRoom: G
     throw error // 에러를 상위 함수로 전달
   }
 }
+
+export const postInviteUserInGroupChat = async function fetchData(userId: number, roomId: number) {
+  const apiUrl = `http://localhost:8080/chat/invite/user/group`
+
+  try {
+    const response = await fetch(apiUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: userId,
+        roomId: roomId,
+      }),
+    })
+    if (!response.ok) {
+      throw new Error('Network response was not ok')
+    }
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('API 요청 실패:', error)
+    throw error // 에러를 상위 함수로 전달
+  }
+}
