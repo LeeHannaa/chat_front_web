@@ -115,7 +115,7 @@ export const postGroupChatRoomCreate = async function fetchData(groupChatRoom: G
 
 export const postInviteUserInGroupChat = async function fetchData(userId: number, roomId: number) {
   const apiUrl = `http://localhost:8080/chat/invite/user/group`
-
+  console.log('초대하기 전에 전달할 데이터 확인 : ', userId, +', ' + roomId)
   try {
     const response = await fetch(apiUrl.toString(), {
       method: 'POST',

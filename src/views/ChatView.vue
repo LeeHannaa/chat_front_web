@@ -25,16 +25,14 @@ import { Client } from '@stomp/stompjs'
 let websocketClient: Client
 let subscription: any = null
 let unreadCountByMe: number
-let leaveUserId: number
 
 const chatStore = useChatStore()
 const myId = ref<number | null>(null)
 const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
-const leaveMessage = ref<string | null>(null)
 const inviteMessage = ref<string | null>(null)
-const showInviteButton = ref<boolean>(false)
+const showInviteButton = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
 
 function moveScroll() {
@@ -167,17 +165,10 @@ function connect() {
               }
             }
           } else if (parsedMessage.type === 'LEAVE') {
-            leaveUserId = parsedMessage.leaveUserId
-            const leaveUserName = parsedMessage.leaveUserName
+            const message = parsedMessage.message
             const changeNumber = parsedMessage.msgToReadCount
-            console.log(
-              '🗑️ 해당 유저 나감!! : ',
-              leaveUserId,
-              ' : ',
-              leaveUserName,
-              '읽음처리 수 : ',
-              changeNumber,
-            )
+
+            console.log('🗑️ 해당 유저 나감!! : ', message, '읽음처리 수 : ', changeNumber)
             for (
               let i = chatStore.chats.length - 1;
               i > chatStore.chats.length - changeNumber - 1;
@@ -186,7 +177,31 @@ function connect() {
               if (chatStore.chats[i].unreadCount == 0) break
               chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
             }
-            leaveMessage.value = `${leaveUserName}님이 방을 나갔습니다.`
+            const recieveChat: Chat = {
+              id: parsedMessage.message.id,
+              writerName: parsedMessage.message.writerName,
+              writerId: parsedMessage.message.writerId,
+              roomId: parsedMessage.message.roomId,
+              msg: parsedMessage.message.msg,
+              type: parsedMessage.message.type,
+              unreadCount: parsedMessage.message.unreadCount,
+              createdDate: String(new Date(parsedMessage.message.createdDate)),
+            }
+            chatStore.chats.push(recieveChat)
+            moveScroll()
+          } else if (parsedMessage.type === 'INVITE') {
+            const message = parsedMessage.message
+            console.log('해당 유저 들어옴!! : ', message)
+            const recieveChat: Chat = {
+              id: parsedMessage.message.id,
+              writerName: parsedMessage.message.writerName,
+              writerId: parsedMessage.message.writerId,
+              roomId: parsedMessage.message.roomId,
+              msg: parsedMessage.message.msg,
+              type: parsedMessage.message.type,
+              createdDate: String(new Date(parsedMessage.message.createdDate)),
+            }
+            chatStore.chats.push(recieveChat)
             moveScroll()
           } else {
             console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
@@ -255,8 +270,9 @@ async function deleteMessageToAll(msgId: string) {
   }
 }
 
-async function clickInviteUser() {
-  const response = await postInviteUserInGroupChat(leaveUserId, roomId.value ?? 0)
+async function clickInviteUser(userId: number) {
+  const response = await postInviteUserInGroupChat(userId, roomId.value ?? 0)
+  // TODO : 다시 들어왔다는 것도 채팅 내역에 (db) 추가해야함....... 백에서 따로 추가하고 프론트에서도 일단 일시적으로 추가해두는걸로!!
   if (response) {
     inviteMessage.value = `${response.user.userName}님이 방에 들어왔습니다.`
   }
@@ -271,8 +287,9 @@ async function clickInviteUser() {
         v-for="chat in chatStore.chats"
         :key="chat.id"
         :class="{
-          'my-chat': chat.writerId === myId,
-          'other-chat': chat.writerId !== myId,
+          'my-chat': chat.type !== 'SYSTEM' && chat.writerId === myId,
+          'other-chat': chat.type !== 'SYSTEM' && chat.writerId !== myId,
+          'system-chat': chat.type === 'SYSTEM',
         }"
       >
         <div v-if="chat.type === 'TEXT'" class="chat-content">
@@ -295,13 +312,23 @@ async function clickInviteUser() {
             <button class="deleteBT" @click="deleteMessageToMe(chat.id)">내 기기 🗑️</button>
           </div>
         </div>
+        <!-- TODO : 한번 다시 초대한 삭제 메시지는 눌러도 아무것도 없어야함!! -->
+        <div v-if="chat.type === 'SYSTEM'" class="chat-content">
+          <p v-if="chat.msg?.includes('초대') === false" @click="showInviteButton = chat.id">
+            {{ chat.msg }}
+          </p>
+          <p v-else>
+            {{ chat.msg }}
+          </p>
+          <button
+            v-if="showInviteButton === chat.id"
+            class="invite-button"
+            @click="clickInviteUser(chat.writerId)"
+          >
+            다시 초대하기
+          </button>
+        </div>
       </div>
-      <p v-if="leaveMessage" class="leave-message" @click="showInviteButton = true">
-        {{ leaveMessage }}
-      </p>
-      <button v-if="showInviteButton" class="invite-button" @click="clickInviteUser">
-        다시 초대하기
-      </button>
     </div>
     <div class="inputBox">
       <input
@@ -354,6 +381,14 @@ async function clickInviteUser() {
   margin-bottom: 12px;
 }
 
+.system-chat {
+  text-align: center;
+  color: #856404;
+  font-size: 13px;
+  margin-bottom: 10px;
+  padding: 10px;
+}
+
 .chat-content h3 {
   margin: 0;
   font-weight: bold;
@@ -363,14 +398,6 @@ async function clickInviteUser() {
   margin: 5px 0;
   font-size: 13px;
   line-height: 1.4;
-}
-
-.leave-message {
-  margin-bottom: 10px;
-  padding: 10px;
-  font-size: 13px;
-  color: #856404;
-  text-align: center;
 }
 
 .invite-button {
