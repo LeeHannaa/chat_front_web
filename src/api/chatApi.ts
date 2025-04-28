@@ -113,7 +113,11 @@ export const postGroupChatRoomCreate = async function fetchData(groupChatRoom: G
   }
 }
 
-export const postInviteUserInGroupChat = async function fetchData(userId: number, roomId: number) {
+export const postInviteUserInGroupChat = async function fetchData(
+  userId: number,
+  roomId: number,
+  msgId: string,
+) {
   const apiUrl = `http://localhost:8080/chat/invite/user/group`
   console.log('초대하기 전에 전달할 데이터 확인 : ', userId, +', ' + roomId)
   try {
@@ -125,6 +129,7 @@ export const postInviteUserInGroupChat = async function fetchData(userId: number
       body: JSON.stringify({
         userId: userId,
         roomId: roomId,
+        msgId: msgId,
       }),
     })
     if (!response.ok) {

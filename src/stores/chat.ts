@@ -9,6 +9,7 @@ export interface Chat {
   msg?: string
   delete?: boolean
   unreadCount?: number
+  beforeMsgId?: string
   type?: string
 }
 export interface postChat {

@@ -31,9 +31,8 @@ const myId = ref<number | null>(null)
 const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
-const inviteMessage = ref<string | null>(null)
-const showInviteButton = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
+const hiddenBtId = new Set()
 
 function moveScroll() {
   nextTick(() => {
@@ -56,7 +55,7 @@ async function getChats() {
       const data = await fetchChats(myId.value, props.from, props.id)
       console.log('채팅 내역 받아온 데이터 확인 : ', data)
       if (data) {
-        if (data[0] && data[0]?.id !== null) {
+        if (data[0] && data[0].id) {
           // 기존에 존재하던 대화방
           chatStore.setChats(data || [])
           roomId.value = data[0]?.roomId
@@ -68,13 +67,12 @@ async function getChats() {
           console.log('처음 방 생성!! 방 아이디 : ', roomId)
         }
         connect() // 웹소켓 연결
-        // TODO : 내가 채팅방에 입장했을 때 안읽은 메시지 수 받아서 읽음 실시간 읽음처리 ui 수정
         unreadCountByMe = await fetchUnreadCountByRoom(roomId?.value ?? 0, myId?.value ?? 0)
 
         const safeUnreadCount = unreadCountByMe ?? 0
         const start = Math.max(chatStore.chats.length - safeUnreadCount, 0)
         for (let i = chatStore.chats.length - 1; i >= start; i--) {
-          if (chatStore.chats[i]) {
+          if (chatStore.chats[i] && chatStore.chats[i].type == 'TEXT') {
             chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
           }
         }
@@ -144,11 +142,13 @@ function connect() {
             const changeNumber = parseInt(parsedMessage.message)
             for (
               let i = chatStore.chats.length - 1;
-              i > chatStore.chats.length - changeNumber - 1;
+              i > Math.max(0, chatStore.chats.length - changeNumber - 1);
               i--
             ) {
-              if (chatStore.chats[i].unreadCount == 0) break
-              chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
+              if (chatStore.chats[i].type == 'TEXT') {
+                if (chatStore.chats[i].unreadCount == 0) break
+                chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
+              }
             }
           } else if (parsedMessage.type === 'OUT') {
             if (parsedMessage.message === '상대방 퇴장') {
@@ -171,11 +171,13 @@ function connect() {
             console.log('🗑️ 해당 유저 나감!! : ', message, '읽음처리 수 : ', changeNumber)
             for (
               let i = chatStore.chats.length - 1;
-              i > chatStore.chats.length - changeNumber - 1;
+              i > Math.max(0, chatStore.chats.length - changeNumber - 1);
               i--
             ) {
-              if (chatStore.chats[i].unreadCount == 0) break
-              chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
+              if (chatStore.chats[i].type == 'TEXT') {
+                if (chatStore.chats[i].unreadCount == 0) break
+                chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
+              }
             }
             const recieveChat: Chat = {
               id: parsedMessage.message.id,
@@ -184,6 +186,7 @@ function connect() {
               roomId: parsedMessage.message.roomId,
               msg: parsedMessage.message.msg,
               type: parsedMessage.message.type,
+              delete: false,
               unreadCount: parsedMessage.message.unreadCount,
               createdDate: String(new Date(parsedMessage.message.createdDate)),
             }
@@ -199,9 +202,12 @@ function connect() {
               roomId: parsedMessage.message.roomId,
               msg: parsedMessage.message.msg,
               type: parsedMessage.message.type,
+              beforeMsgId: parsedMessage.message.beforeMsgId,
               createdDate: String(new Date(parsedMessage.message.createdDate)),
             }
             chatStore.chats.push(recieveChat)
+            // 초대 메시지를 상대가 눌렀다면 나의 ui에서도 안보이게 해주기
+            if (!hiddenBtId.has(recieveChat.beforeMsgId)) hiddenBtId.add(recieveChat.beforeMsgId)
             moveScroll()
           } else {
             console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
@@ -270,12 +276,9 @@ async function deleteMessageToAll(msgId: string) {
   }
 }
 
-async function clickInviteUser(userId: number) {
-  const response = await postInviteUserInGroupChat(userId, roomId.value ?? 0)
-  // TODO : 다시 들어왔다는 것도 채팅 내역에 (db) 추가해야함....... 백에서 따로 추가하고 프론트에서도 일단 일시적으로 추가해두는걸로!!
-  if (response) {
-    inviteMessage.value = `${response.user.userName}님이 방에 들어왔습니다.`
-  }
+async function clickInviteUser(userId: number, msgId: string) {
+  hiddenBtId.add(msgId)
+  await postInviteUserInGroupChat(userId, roomId.value ?? 0, msgId)
 }
 </script>
 
@@ -296,8 +299,8 @@ async function clickInviteUser(userId: number) {
           <h3 v-if="chat.writerId !== myId">
             {{ chat.writerName }}
           </h3>
-          <p>{{ chat.msg }}</p>
-          <p>{{ formatDate(chat.createdDate) }}</p>
+          <p class="msg-text">{{ chat.msg }}</p>
+          <p class="date-text">{{ formatDate(chat.createdDate) }}</p>
           <div>
             <span class="isread">
               {{ chat.unreadCount == 0 ? '' : chat.unreadCount }}
@@ -312,21 +315,24 @@ async function clickInviteUser(userId: number) {
             <button class="deleteBT" @click="deleteMessageToMe(chat.id)">내 기기 🗑️</button>
           </div>
         </div>
-        <!-- TODO : 한번 다시 초대한 삭제 메시지는 눌러도 아무것도 없어야함!! -->
         <div v-if="chat.type === 'SYSTEM'" class="chat-content">
-          <p v-if="chat.msg?.includes('초대') === false" @click="showInviteButton = chat.id">
-            {{ chat.msg }}
-          </p>
-          <p v-else>
-            {{ chat.msg }}
-          </p>
-          <button
-            v-if="showInviteButton === chat.id"
-            class="invite-button"
-            @click="clickInviteUser(chat.writerId)"
-          >
-            다시 초대하기
-          </button>
+          <template v-if="chat.msg?.includes('초대') === false">
+            <p>{{ chat.msg }}</p>
+            <button
+              v-if="
+                chat.msg?.includes('초대') === false &&
+                chat.delete === false &&
+                !hiddenBtId.has(chat.id)
+              "
+              class="invite-button"
+              @click="clickInviteUser(chat.writerId, chat.id)"
+            >
+              다시 초대하기
+            </button>
+          </template>
+          <template v-else>
+            <p>{{ chat.msg }}</p>
+          </template>
         </div>
       </div>
     </div>
@@ -387,6 +393,7 @@ async function clickInviteUser(userId: number) {
   font-size: 13px;
   margin-bottom: 10px;
   padding: 10px;
+  padding-bottom: 2px;
 }
 
 .chat-content h3 {
@@ -394,23 +401,24 @@ async function clickInviteUser(userId: number) {
   font-weight: bold;
 }
 
-.chat-content p {
-  margin: 5px 0;
+.msg-text {
+  margin: 0;
   font-size: 13px;
   line-height: 1.4;
 }
 
-.invite-button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  cursor: pointer;
+.date-text {
+  margin: 0;
+  font-size: 8px;
+  color: gray;
 }
-.invite-button:hover {
-  background-color: #0056b3;
+
+.invite-button {
+  font-size: 11px;
+  color: #b68904;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
 .inputBox {
