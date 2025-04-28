@@ -6,10 +6,11 @@ export interface Chat {
   writerName: string
   createdDate: string
   roomId: number
-  count?: number
   msg?: string
   delete?: boolean
-  isRead?: boolean
+  unreadCount?: number
+  beforeMsgId?: string
+  type?: string
 }
 export interface postChat {
   writerName: string
@@ -28,7 +29,7 @@ export const useChatStore = defineStore('chat', {
     setChats(newChats: Chat[]) {
       this.chats = newChats.map((chat) => ({
         ...chat,
-        isRead: chat.isRead ?? true,
+        isRead: chat.unreadCount ?? 0,
       }))
     },
   },

@@ -1,3 +1,5 @@
+import type { GroupChatRoom } from '@/views/GroupView.vue'
+
 export const fetchChats = async function fetchData(myId: number, from: string, id: number) {
   let apiUrl = ''
 
@@ -27,8 +29,8 @@ export const fetchChats = async function fetchData(myId: number, from: string, i
   }
 }
 
-export const fetchUnreadCountByRoom = async function fetchData(roomId: number) {
-  const apiUrl = `http://localhost:8080/chat/unread/count?roomId=${roomId}`
+export const fetchUnreadCountByRoom = async function fetchData(roomId: number, myId: number) {
+  const apiUrl = `http://localhost:8080/chat/unread/count/${roomId}?myId=${myId}`
 
   try {
     const response = await fetch(apiUrl.toString(), {
@@ -83,6 +85,58 @@ export const deleteChatMessageToAll = async (msgId: string, myId: number) => {
     if (!response.ok) {
       throw new Error('Network response was not ok')
     }
+  } catch (error) {
+    console.error('API 요청 실패:', error)
+    throw error // 에러를 상위 함수로 전달
+  }
+}
+
+export const postGroupChatRoomCreate = async function fetchData(groupChatRoom: GroupChatRoom) {
+  const apiUrl = `http://localhost:8080/chat/create/group`
+
+  try {
+    const response = await fetch(apiUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(groupChatRoom),
+    })
+    if (!response.ok) {
+      throw new Error('Network response was not ok')
+    }
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('API 요청 실패:', error)
+    throw error // 에러를 상위 함수로 전달
+  }
+}
+
+export const postInviteUserInGroupChat = async function fetchData(
+  userId: number,
+  roomId: number,
+  msgId: string,
+) {
+  const apiUrl = `http://localhost:8080/chat/invite/user/group`
+  console.log('초대하기 전에 전달할 데이터 확인 : ', userId, +', ' + roomId)
+  try {
+    const response = await fetch(apiUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: userId,
+        roomId: roomId,
+        msgId: msgId,
+      }),
+    })
+    if (!response.ok) {
+      throw new Error('Network response was not ok')
+    }
+    const data = await response.json()
+    return data
   } catch (error) {
     console.error('API 요청 실패:', error)
     throw error // 에러를 상위 함수로 전달
