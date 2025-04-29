@@ -159,10 +159,12 @@ function connect() {
             console.log('🗑️ 해당 메시지 삭제!! : ', deleteMsgId)
             const index = chatStore.chats.findIndex((msg) => msg.id === deleteMsgId)
             if (index !== -1) {
-              chatStore.chats[index] = {
-                ...chatStore.chats[index],
-                msg: '삭제된 메시지입니다.',
-              }
+              //        * like kakaoTalk (전체 삭제일 경우도 그냥 아예 삭제하는 피드백 반영 *
+              // chatStore.chats[index] = {
+              //   ...chatStore.chats[index],
+              //   msg: '삭제된 메시지입니다.',
+              // }
+              chatStore.chats.splice(index, 1)
             }
           } else if (parsedMessage.type === 'LEAVE') {
             const message = parsedMessage.message
@@ -251,27 +253,28 @@ function handleButtonClick() {
     console.log('빈 메시지는 전송할 수 없습니다.')
   }
 }
+// * like kakaoTalk (전체 삭제일 경우도 그냥 아예 삭제하는 피드백 반영 *
 
-function isWithin5Minutes(createDate: string): boolean {
-  const now = new Date()
-  const chatTime = new Date(createDate)
-  const diff = (now.getTime() - chatTime.getTime()) / 1000
-  return diff <= 300
-}
-
-async function deleteMessageToMe(msgId: string) {
-  await deleteChatMessageToMe(msgId, myId.value!)
-  const index = chatStore.chats.findIndex((chat) => chat.id === msgId)
-  if (index !== -1) {
-    chatStore.chats.splice(index, 1)
-  }
-}
+// function isWithin5Minutes(createDate: string): boolean {
+//   const now = new Date()
+//   const chatTime = new Date(createDate)
+//   const diff = (now.getTime() - chatTime.getTime()) / 1000
+//   return diff <= 300
+// }
+// async function deleteMessageToMe(msgId: string) {
+//   await deleteChatMessageToMe(msgId, myId.value!)
+//   const index = chatStore.chats.findIndex((chat) => chat.id === msgId)
+//   if (index !== -1) {
+//     chatStore.chats.splice(index, 1)
+//   }
+// }
 
 async function deleteMessageToAll(msgId: string) {
   await deleteChatMessageToAll(msgId, myId.value!)
   const index = chatStore.chats.findIndex((chat) => chat.id === msgId)
   if (index !== -1) {
-    chatStore.chats[index].msg = '삭제된 메시지입니다.'
+    // chatStore.chats[index].msg = '삭제된 메시지입니다.'
+    chatStore.chats.splice(index, 1)
     chatStore.chats[index].delete = true
   }
 }
@@ -307,12 +310,12 @@ async function clickInviteUser(userId: number, msgId: string) {
             </span>
             <button
               class="deleteBT"
-              v-if="chat.writerId == myId && !chat.delete && isWithin5Minutes(chat.createdDate)"
+              v-if="chat.writerId == myId && !chat.delete"
               @click="deleteMessageToAll(chat.id)"
             >
               전체 🗑️
             </button>
-            <button class="deleteBT" @click="deleteMessageToMe(chat.id)">내 기기 🗑️</button>
+            <!-- <button class="deleteBT" @click="deleteMessageToMe(chat.id)">내 기기 🗑️</button> -->
           </div>
         </div>
         <div v-if="chat.type === 'SYSTEM'" class="chat-content">
