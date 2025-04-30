@@ -20,6 +20,11 @@ const router = createRouter({
       }),
     },
     {
+      path: '/note',
+      name: 'note',
+      component: () => import('../views/NoteView.vue'),
+    },
+    {
       path: '/apt',
       name: 'apt',
       component: () => import('../views/AptView.vue'),
