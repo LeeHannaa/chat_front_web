@@ -3,7 +3,12 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { type APTDetail } from '../stores/apt'
 import { fetchAPTDetailList } from '../api/aptApi'
-
+import { postNoteByNonMember } from '@/api/noteApi'
+export interface NoteNonMember {
+  aptId: number
+  phoneNumber: string
+  noteText: string
+}
 const router = useRouter()
 const myId = ref<number | null>(null)
 const aptDetail = ref<APTDetail | null>(null)
@@ -48,6 +53,24 @@ function handleAPTClick(apt: { id: number; name: string }) {
     },
   })
 }
+
+const phoneNumber = ref('')
+const noteText = ref('')
+async function handleSendNoteClick() {
+  const requestData: NoteNonMember = {
+    aptId: props.id,
+    phoneNumber: phoneNumber.value.trim(),
+    noteText: noteText.value.trim(),
+  }
+  console.log('전송할 데이터:', requestData)
+  const data = await postNoteByNonMember(requestData)
+  console.log('쪽지보내기 성공!!:', data)
+  if (data.ok) {
+    alert('쪽지를 전송했습니다!')
+  }
+  phoneNumber.value = ''
+  noteText.value = ''
+}
 </script>
 
 <template>
@@ -57,10 +80,17 @@ function handleAPTClick(apt: { id: number; name: string }) {
       <div class="aptDetail" style="cursor: pointer">
         <h3>{{ aptDetail?.name }}</h3>
         <p style="margin-bottom: 50px">기타 등등의 정보들</p>
-        <button v-if="aptDetail?.userId === myId" class="aptDetailBT">매물 수정</button>
-        <button v-else class="aptDetailBT" @click="aptDetail && handleAPTClick(aptDetail)">
-          채팅 문의
-        </button>
+        <div v-if="myId != null">
+          <button v-if="aptDetail?.userId === myId" class="aptDetailBT">매물 수정</button>
+          <button v-else class="aptDetailBT" @click="aptDetail && handleAPTClick(aptDetail)">
+            채팅 문의
+          </button>
+        </div>
+        <div v-else>
+          <input v-model="phoneNumber" inputmode="numeric" placeholder="전화번호 입력 (숫자만)" />
+          <textarea v-model="noteText" placeholder="문의 내용을 입력하세요"></textarea>
+          <button class="aptDetailBT" @click="handleSendNoteClick">쪽지 문의</button>
+        </div>
       </div>
     </div>
   </main>
