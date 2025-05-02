@@ -55,34 +55,38 @@ async function connectSocket() {
         subscription.unsubscribe()
       }
 
-      subscription = websocketClient.subscribe(`/topic/chatlist/${myId.value}`, (message) => {
+      subscription = websocketClient.subscribe(`/topic/user/${myId.value}`, (message) => {
         try {
           const parsedMessage = JSON.parse(message.body)
           console.log('채팅새로옴!!', parsedMessage)
 
-          const index = chatStore.chatList.findIndex((chat) => chat.roomId === parsedMessage.roomId)
-          if (index !== -1) {
-            // 이미 있는 채팅방: 정보 업데이트
-            chatStore.chatList[index] = {
-              ...chatStore.chatList[index],
-              lastMsg: parsedMessage.msg,
-              updateLastMsgTime: new Date(parsedMessage.updateLastMsgTime ?? Date.now()),
-              unreadCount: parsedMessage.unreadCount,
+          if (parsedMessage.type === 'CHATLIST') {
+            const index = chatStore.chatList.findIndex(
+              (chat) => chat.roomId === parsedMessage.message.roomId,
+            )
+            if (index !== -1) {
+              // 이미 있는 채팅방: 정보 업데이트
+              chatStore.chatList[index] = {
+                ...chatStore.chatList[index],
+                lastMsg: parsedMessage.message.msg,
+                updateLastMsgTime: new Date(parsedMessage.message.updateLastMsgTime ?? Date.now()),
+                unreadCount: parsedMessage.message.unreadCount,
+              }
+            } else {
+              // 새로운 채팅방 추가
+              chatStore.chatList.push({
+                roomId: parsedMessage.message.roomId,
+                name: parsedMessage.message.chatName,
+                lastMsg: parsedMessage.message.msg,
+                updateLastMsgTime: new Date(parsedMessage.message.updateLastMsgTime ?? Date.now()),
+                unreadCount: parsedMessage.message.unreadCount,
+              })
             }
-          } else {
-            // 새로운 채팅방 추가
-            chatStore.chatList.push({
-              roomId: parsedMessage.roomId,
-              name: parsedMessage.chatName,
-              lastMsg: parsedMessage.msg,
-              updateLastMsgTime: new Date(parsedMessage.updateLastMsgTime ?? Date.now()),
-              unreadCount: parsedMessage.unreadCount,
-            })
+            // 시간 기준으로 정렬
+            chatStore.chatList.sort(
+              (a, b) => b.updateLastMsgTime!.getTime() - a.updateLastMsgTime!.getTime(),
+            )
           }
-          // 시간 기준으로 정렬
-          chatStore.chatList.sort(
-            (a, b) => b.updateLastMsgTime!.getTime() - a.updateLastMsgTime!.getTime(),
-          )
         } catch (err) {
           console.error('메시지 파싱 실패:', err)
         }

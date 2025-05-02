@@ -108,6 +108,7 @@ const openModal = (note: Note) => {
   selectedNote.value = note
   isModalOpen.value = true
   readNote(myId.value!, note.noteId)
+  note.isRead = true
 }
 
 const closeModal = () => {
