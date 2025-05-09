@@ -32,7 +32,7 @@ const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
-const hiddenBtId = new Set<string>()
+const hiddenBtId = ref<string[]>([])
 
 function moveScroll() {
   nextTick(() => {
@@ -179,7 +179,9 @@ function connect() {
             console.log('해당 유저 들어옴!! : ', message)
             chatStore.addChatInviteText(message)
             // 초대 메시지를 상대가 눌렀다면 나의 ui에서도 안보이게 해주기
-            if (!hiddenBtId.has(message.beforeMsgId)) hiddenBtId.add(message.beforeMsgId)
+            if (!hiddenBtId.value.includes(message.beforeMsgId)) {
+              hiddenBtId.value.push(message.beforeMsgId)
+            }
             moveScroll()
           } else {
             console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
@@ -250,7 +252,7 @@ async function deleteMessageToAll(msgId: string) {
 }
 
 async function clickInviteUser(userId: number, msgId: string) {
-  hiddenBtId.add(msgId)
+  hiddenBtId.value.push(msgId)
   await postInviteUserInGroupChat(userId, roomId.value ?? 0, msgId)
 }
 </script>

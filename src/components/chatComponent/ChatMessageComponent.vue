@@ -4,7 +4,7 @@ import { type Chat } from '../../stores/chat'
 interface Props {
   chat: Chat
   myId: number
-  hiddenBtId: Set<string>
+  hiddenBtId: string[]
   formatDate: (date: string) => string
 }
 defineProps<Props>()
@@ -34,7 +34,7 @@ const emit = defineEmits<{
     <template v-if="!chat.msg?.includes('초대')">
       <p>{{ chat.msg }}</p>
       <button
-        v-if="!chat.delete && !hiddenBtId.has(chat.id)"
+        v-if="!chat.delete && !hiddenBtId.includes(chat.id)"
         class="invite-button"
         @click="emit('click-invite-user', chat.writerId, chat.id)"
       >
