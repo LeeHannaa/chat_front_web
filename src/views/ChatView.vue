@@ -2,7 +2,6 @@
 import { onMounted, ref, nextTick, onUnmounted } from 'vue'
 import {
   deleteChatMessageToAll,
-  deleteChatMessageToMe,
   fetchChats,
   fetchUnreadCountByRoom,
   postInviteUserInGroupChat,
@@ -12,6 +11,7 @@ import { type Chat, type postChat, useChatStore } from '../stores/chat'
 import { formatDate } from '../plugins/formatDate'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
+import ChatMessageComponent from '../components/chatComponent/chatMessageComponent.vue'
 
 dayjs.extend(relativeTime)
 
@@ -21,9 +21,9 @@ const props = defineProps<{
   from: string
 }>()
 
-import { Client } from '@stomp/stompjs'
+import { Client, type StompSubscription } from '@stomp/stompjs'
 let websocketClient: Client
-let subscription: any = null
+let subscription: StompSubscription | null = null
 let unreadCountByMe: number
 
 const chatStore = useChatStore()
@@ -32,7 +32,7 @@ const myName = ref<string | null>(null)
 const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
-const hiddenBtId = new Set()
+const hiddenBtId = new Set<string>()
 
 function moveScroll() {
   nextTick(() => {
@@ -120,19 +120,10 @@ function connect() {
         `/topic/chatroom/${roomId.value ?? 0}`,
         (message) => {
           const parsedMessage = JSON.parse(message.body)
+          const chat = parsedMessage.message as Chat
 
           if (parsedMessage.type === 'CHAT') {
-            const recieveChat: Chat = {
-              id: parsedMessage.message.id,
-              writerName: parsedMessage.message.writerName,
-              writerId: parsedMessage.message.writerId,
-              roomId: parsedMessage.message.roomId,
-              msg: parsedMessage.message.msg,
-              type: parsedMessage.message.type,
-              unreadCount: parsedMessage.message.unreadCount,
-              createdDate: String(new Date(parsedMessage.message.createdDate)),
-            }
-            chatStore.chats.push(recieveChat)
+            chatStore.addChat(chat)
             console.log('💬 채팅 메시지 수신:', message.body)
             moveScroll()
           } else if (parsedMessage.type === 'INFO') {
@@ -181,35 +172,14 @@ function connect() {
                 chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
               }
             }
-            const recieveChat: Chat = {
-              id: parsedMessage.message.id,
-              writerName: parsedMessage.message.writerName,
-              writerId: parsedMessage.message.writerId,
-              roomId: parsedMessage.message.roomId,
-              msg: parsedMessage.message.msg,
-              type: parsedMessage.message.type,
-              delete: false,
-              unreadCount: parsedMessage.message.unreadCount,
-              createdDate: String(new Date(parsedMessage.message.createdDate)),
-            }
-            chatStore.chats.push(recieveChat)
+            chatStore.addChatLeaveText(message)
             moveScroll()
           } else if (parsedMessage.type === 'INVITE') {
             const message = parsedMessage.message
             console.log('해당 유저 들어옴!! : ', message)
-            const recieveChat: Chat = {
-              id: parsedMessage.message.id,
-              writerName: parsedMessage.message.writerName,
-              writerId: parsedMessage.message.writerId,
-              roomId: parsedMessage.message.roomId,
-              msg: parsedMessage.message.msg,
-              type: parsedMessage.message.type,
-              beforeMsgId: parsedMessage.message.beforeMsgId,
-              createdDate: String(new Date(parsedMessage.message.createdDate)),
-            }
-            chatStore.chats.push(recieveChat)
+            chatStore.addChatInviteText(message)
             // 초대 메시지를 상대가 눌렀다면 나의 ui에서도 안보이게 해주기
-            if (!hiddenBtId.has(recieveChat.beforeMsgId)) hiddenBtId.add(recieveChat.beforeMsgId)
+            if (!hiddenBtId.has(message.beforeMsgId)) hiddenBtId.add(message.beforeMsgId)
             moveScroll()
           } else {
             console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
@@ -298,45 +268,14 @@ async function clickInviteUser(userId: number, msgId: string) {
           'system-chat': chat.type === 'SYSTEM',
         }"
       >
-        <div v-if="chat.type === 'TEXT'" class="chat-content">
-          <h3 v-if="chat.writerId !== myId">
-            {{ chat.writerName }}
-          </h3>
-          <p class="msg-text">{{ chat.msg }}</p>
-          <p class="date-text">{{ formatDate(chat.createdDate) }}</p>
-          <div>
-            <span class="isread">
-              {{ chat.unreadCount == 0 ? '' : chat.unreadCount }}
-            </span>
-            <button
-              class="deleteBT"
-              v-if="chat.writerId == myId && !chat.delete"
-              @click="deleteMessageToAll(chat.id)"
-            >
-              전체 🗑️
-            </button>
-            <!-- <button class="deleteBT" @click="deleteMessageToMe(chat.id)">내 기기 🗑️</button> -->
-          </div>
-        </div>
-        <div v-if="chat.type === 'SYSTEM'" class="chat-content">
-          <template v-if="chat.msg?.includes('초대') === false">
-            <p>{{ chat.msg }}</p>
-            <button
-              v-if="
-                chat.msg?.includes('초대') === false &&
-                chat.delete === false &&
-                !hiddenBtId.has(chat.id)
-              "
-              class="invite-button"
-              @click="clickInviteUser(chat.writerId, chat.id)"
-            >
-              다시 초대하기
-            </button>
-          </template>
-          <template v-else>
-            <p>{{ chat.msg }}</p>
-          </template>
-        </div>
+        <ChatMessageComponent
+          :chat="chat"
+          :myId="myId"
+          :hiddenBtId="hiddenBtId"
+          :formatDate="formatDate"
+          @delete-message-to-all="deleteMessageToAll"
+          @click-invite-user="clickInviteUser"
+        />
       </div>
     </div>
     <div class="inputBox">
@@ -404,26 +343,6 @@ async function clickInviteUser(userId: number, msgId: string) {
   font-weight: bold;
 }
 
-.msg-text {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.date-text {
-  margin: 0;
-  font-size: 8px;
-  color: gray;
-}
-
-.invite-button {
-  font-size: 11px;
-  color: #b68904;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
 .inputBox {
   width: 100%;
   position: absolute;
@@ -452,21 +371,6 @@ async function clickInviteUser(userId: number, msgId: string) {
   background: #8ec78bff;
   border: none;
   border-radius: 10px;
-  cursor: pointer;
-}
-.isread {
-  font-size: 8px;
-  color: gray;
-}
-
-.deleteBT {
-  margin: 1px;
-  font-size: 8px;
-  height: 20px;
-  max-width: 50px;
-  background: #c2b65dff;
-  border: none;
-  border-radius: 5px;
   cursor: pointer;
 }
 </style>

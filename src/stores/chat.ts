@@ -32,5 +32,45 @@ export const useChatStore = defineStore('chat', {
         isRead: chat.unreadCount ?? 0,
       }))
     },
+    addChat(chatMessage: Chat) {
+      const newChat: Chat = {
+        id: chatMessage.id,
+        writerName: chatMessage.writerName,
+        writerId: chatMessage.writerId,
+        roomId: chatMessage.roomId,
+        msg: chatMessage.msg,
+        type: chatMessage.type,
+        unreadCount: chatMessage.unreadCount,
+        createdDate: String(new Date(chatMessage.createdDate)),
+      }
+      this.chats.push(newChat)
+    },
+    addChatLeaveText(chatMessage: Chat) {
+      const newChat: Chat = {
+        id: chatMessage.id,
+        writerName: chatMessage.writerName,
+        writerId: chatMessage.writerId,
+        roomId: chatMessage.roomId,
+        msg: chatMessage.msg,
+        type: chatMessage.type,
+        delete: false,
+        unreadCount: chatMessage.unreadCount,
+        createdDate: String(new Date(chatMessage.createdDate)),
+      }
+      this.chats.push(newChat)
+    },
+    addChatInviteText(chatMessage: Chat) {
+      const newChat: Chat = {
+        id: chatMessage.id,
+        writerName: chatMessage.writerName,
+        writerId: chatMessage.writerId,
+        roomId: chatMessage.roomId,
+        msg: chatMessage.msg,
+        type: chatMessage.type,
+        beforeMsgId: chatMessage.beforeMsgId,
+        createdDate: String(new Date(chatMessage.createdDate)),
+      }
+      this.chats.push(newChat)
+    },
   },
 })

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
 </script>
 
 <template>
   <header>
     <div class="wrapper">
-      <HelloWorld msg="채팅 웹버전 테스트" />
+      <div class="greetings">
+        <h1 class="green">채팅 시스템</h1>
+      </div>
       <nav>
         <RouterLink to="/">채팅 목록</RouterLink>
         <RouterLink to="/note">쪽지 목록</RouterLink>
@@ -48,5 +49,11 @@ nav a {
 
 nav a:first-of-type {
   border: 0;
+}
+h1 {
+  font-weight: 500;
+  font-size: 1.5rem;
+  position: relative;
+  text-align: center;
 }
 </style>

@@ -3,8 +3,9 @@ import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchChatList, fetchChatDelete } from '../api/chatlistApi'
 import { fetchUserInfo } from '../api/userApi'
-import { useChatListStore } from '../stores/chatlist'
+import { useChatListStore, type ChatRoom } from '../stores/chatlist'
 import { formatDate } from '../plugins/formatDate'
+import { connectWebSocket, disconnectWebSocket } from '../plugins/socketService'
 
 const router = useRouter()
 const chatStore = useChatListStore()
@@ -19,86 +20,34 @@ async function getChatList() {
     if (data) {
       chatStore.chatList = []
       chatStore.setChatList(data)
-      chatStore.chatList.sort(
-        (a, b) => b.updateLastMsgTime!.getTime() - a.updateLastMsgTime!.getTime(),
-      )
+      chatStore.sortChatListByLastMsgTime()
       console.log('채팅 목록:', data)
     }
-    connectSocket()
+    setupSocket()
   } catch (err) {
     console.error(err)
   }
 }
+function setupSocket() {
+  if (myId.value) {
+    connectWebSocket(myId.value, (parsedMessage) => {
+      if (parsedMessage.type === 'CHATLIST') {
+        const chatMessage = parsedMessage.message as ChatRoom
 
-import { Client } from '@stomp/stompjs'
-let websocketClient: Client
-let subscription: any = null
-
-async function connectSocket() {
-  // TODO : 소켓 연결
-  const url = 'ws://localhost:8080/ws-stomp'
-  if (websocketClient && websocketClient.active) {
-    websocketClient.deactivate()
-    console.log('이미 연결된 웹소켓 연결 취소.')
-  }
-
-  websocketClient = new Client({
-    brokerURL: url,
-    debug: (str) => {
-      console.log(str)
-    },
-    onConnect: () => {
-      console.log('채팅리스트 웹소켓 연결 성공!')
-
-      // 기존 구독이 있으면 해제
-      if (subscription) {
-        subscription.unsubscribe()
-      }
-
-      subscription = websocketClient.subscribe(`/topic/user/${myId.value}`, (message) => {
-        try {
-          const parsedMessage = JSON.parse(message.body)
-          console.log('채팅새로옴!!', parsedMessage)
-
-          if (parsedMessage.type === 'CHATLIST') {
-            const index = chatStore.chatList.findIndex(
-              (chat) => chat.roomId === parsedMessage.message.roomId,
-            )
-            if (index !== -1) {
-              // 이미 있는 채팅방: 정보 업데이트
-              chatStore.chatList[index] = {
-                ...chatStore.chatList[index],
-                lastMsg: parsedMessage.message.msg,
-                updateLastMsgTime: new Date(parsedMessage.message.updateLastMsgTime ?? Date.now()),
-                unreadCount: parsedMessage.message.unreadCount,
-              }
-            } else {
-              // 새로운 채팅방 추가
-              chatStore.chatList.push({
-                roomId: parsedMessage.message.roomId,
-                name: parsedMessage.message.chatName,
-                lastMsg: parsedMessage.message.msg,
-                updateLastMsgTime: new Date(parsedMessage.message.updateLastMsgTime ?? Date.now()),
-                unreadCount: parsedMessage.message.unreadCount,
-              })
-            }
-            // 시간 기준으로 정렬
-            chatStore.chatList.sort(
-              (a, b) => b.updateLastMsgTime!.getTime() - a.updateLastMsgTime!.getTime(),
-            )
-          }
-        } catch (err) {
-          console.error('메시지 파싱 실패:', err)
+        const index = chatStore.chatList.findIndex((chat) => chat.roomId === chatMessage.roomId)
+        if (index !== -1) {
+          // 이미 있는 채팅방: 정보 업데이트
+          chatStore.updateChatRoom(chatMessage, index)
+        } else {
+          // 새로운 채팅방 추가
+          chatStore.addChatRoom(chatMessage)
         }
-      })
-    },
-    onStompError: (frame) => {
-      console.error('STOMP 오류:', frame)
-    },
-  })
-  websocketClient.activate()
+        // 시간 기준으로 정렬
+        chatStore.sortChatListByLastMsgTime()
+      }
+    })
+  }
 }
-
 async function getUserInfo() {
   if (myId.value === null) return
   try {
@@ -113,7 +62,7 @@ async function getUserInfo() {
 }
 function handleButtonClick() {
   if (myId.value !== null) {
-    getChatList() // Call API with user ID on button click
+    getChatList()
   } else {
     console.error('사용자 아이디를 입력해 주세요.')
   }
@@ -138,10 +87,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (websocketClient) {
-    websocketClient.deactivate()
-    console.log('웹소켓 연결 해제')
-  }
+  disconnectWebSocket()
 })
 
 function handleChatClick(chat: { roomId: number; name: string }) {
@@ -159,7 +105,6 @@ function handleChatClick(chat: { roomId: number; name: string }) {
 async function handleDeleteClick(roomId: number, event: { stopPropagation: () => void }) {
   event.stopPropagation()
   try {
-    // TODO : 삭제할 때 카산드라 db에 있는 채팅 내용은 삭제가 안됨..
     await fetchChatDelete(roomId, myId.value!)
     console.log('삭제 완료!!')
     getChatList()

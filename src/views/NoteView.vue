@@ -3,6 +3,7 @@ import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { deleteNoteRecord, fetchMyNoteList, readNote } from '../api/noteApi'
 import { useNoteListStore, type Note } from '../stores/note'
 import { formatDate } from '../plugins/formatDate'
+import { connectWebSocket, disconnectWebSocket } from '../plugins/socketService'
 
 const noteStore = useNoteListStore()
 const myId = ref<number | null>(null)
@@ -14,66 +15,26 @@ async function getNoteList() {
     if (data) {
       noteStore.noteList = []
       noteStore.setNoteList(data)
-      noteStore.noteList.sort(
-        (a, b) => new Date(b.regDate).getTime() - new Date(a.regDate).getTime(),
-      )
+      noteStore.sortNoteListByTime()
       console.log('채팅 목록:', data)
     }
-    connectSocket()
+    setupSocket()
   } catch (err) {
     console.error(err)
   }
 }
 
-import { Client } from '@stomp/stompjs'
-let websocketClient: Client
-let subscription: any = null
-
-function connectSocket() {
-  const url = 'ws://localhost:8080/ws-stomp'
-  if (websocketClient && websocketClient.active) {
-    websocketClient.deactivate()
-    console.log('이미 연결된 웹소켓 연결 취소.')
-  }
-
-  websocketClient = new Client({
-    brokerURL: url,
-    debug: (str) => {
-      console.log(str)
-    },
-    onConnect: () => {
-      console.log('쪽지 문의 웹소켓 연결 성공!')
-
-      // 기존 구독이 있으면 해제
-      if (subscription) {
-        subscription.unsubscribe()
+function setupSocket() {
+  if (myId.value) {
+    connectWebSocket(myId.value, (parsedMessage) => {
+      if (parsedMessage.type === 'NOTE') {
+        const noteMessage = parsedMessage.message as Note
+        // 새로운 쪽지 추가
+        noteStore.addNote(noteMessage)
+        noteStore.sortNoteListByTime()
       }
-      subscription = websocketClient.subscribe(`/topic/user/${myId.value}`, (message) => {
-        const parsedNote = JSON.parse(message.body)
-        if (parsedNote.type === 'NOTE') {
-          // 새로운 쪽지 추가
-          const recieveNote: Note = {
-            noteId: parsedNote.message.noteId,
-            aptId: parsedNote.message.aptId,
-            aptName: parsedNote.message.aptName,
-            phoneNumber: parsedNote.message.phoneNumber,
-            noteText: parsedNote.message.noteText,
-            regDate: new Date(parsedNote.message.regDate),
-            isRead: parsedNote.message.isRead,
-          }
-          noteStore.noteList.push(recieveNote)
-          noteStore.noteList.sort(
-            (a, b) => new Date(b.regDate).getTime() - new Date(a.regDate).getTime(),
-          )
-          console.log('쪽지 문의 옴!!!', recieveNote)
-        }
-      })
-    },
-    onStompError: (frame) => {
-      console.error('STOMP 오류:', frame)
-    },
-  })
-  websocketClient.activate()
+    })
+  }
 }
 
 onMounted(() => {
@@ -95,10 +56,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (websocketClient) {
-    websocketClient.deactivate()
-    console.log('웹소켓 연결 해제')
-  }
+  disconnectWebSocket()
 })
 
 const isModalOpen = ref(false)

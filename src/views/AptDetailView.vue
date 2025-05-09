@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { type APTDetail } from '../stores/apt'
 import { fetchAPTDetailList } from '../api/aptApi'
-import { postNoteByNonMember } from '@/api/noteApi'
+import { postNoteByNonMember } from '../api/noteApi'
 export interface NoteNonMember {
   aptId: number
   phoneNumber: string
