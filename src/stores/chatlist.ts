@@ -19,5 +19,28 @@ export const useChatListStore = defineStore('chatlist', {
         updateLastMsgTime: chat.updateLastMsgTime ? new Date(chat.updateLastMsgTime) : undefined,
       }))
     },
+    addChatRoom(chatMessage: ChatRoom) {
+      const newChat: ChatRoom = {
+        roomId: chatMessage.roomId,
+        name: chatMessage.name,
+        lastMsg: chatMessage.lastMsg,
+        updateLastMsgTime: new Date(chatMessage.updateLastMsgTime ?? Date.now()),
+        unreadCount: chatMessage.unreadCount,
+      }
+      this.chatList.push(newChat)
+    },
+    updateChatRoom(chatMessage: ChatRoom, index: number) {
+      if (index !== -1) {
+        this.chatList[index] = {
+          ...this.chatList[index],
+          lastMsg: chatMessage.lastMsg,
+          updateLastMsgTime: new Date(chatMessage.updateLastMsgTime ?? Date.now()),
+          unreadCount: chatMessage.unreadCount,
+        }
+      }
+    },
+    sortChatListByLastMsgTime() {
+      this.chatList.sort((a, b) => b.updateLastMsgTime!.getTime() - a.updateLastMsgTime!.getTime())
+    },
   },
 })

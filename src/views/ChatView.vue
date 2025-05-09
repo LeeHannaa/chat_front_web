@@ -2,7 +2,6 @@
 import { onMounted, ref, nextTick, onUnmounted } from 'vue'
 import {
   deleteChatMessageToAll,
-  deleteChatMessageToMe,
   fetchChats,
   fetchUnreadCountByRoom,
   postInviteUserInGroupChat,
@@ -21,9 +20,9 @@ const props = defineProps<{
   from: string
 }>()
 
-import { Client } from '@stomp/stompjs'
+import { Client, type StompSubscription } from '@stomp/stompjs'
 let websocketClient: Client
-let subscription: any = null
+let subscription: StompSubscription | null = null
 let unreadCountByMe: number
 
 const chatStore = useChatStore()
@@ -120,19 +119,10 @@ function connect() {
         `/topic/chatroom/${roomId.value ?? 0}`,
         (message) => {
           const parsedMessage = JSON.parse(message.body)
+          const chat = parsedMessage.message as Chat
 
           if (parsedMessage.type === 'CHAT') {
-            const recieveChat: Chat = {
-              id: parsedMessage.message.id,
-              writerName: parsedMessage.message.writerName,
-              writerId: parsedMessage.message.writerId,
-              roomId: parsedMessage.message.roomId,
-              msg: parsedMessage.message.msg,
-              type: parsedMessage.message.type,
-              unreadCount: parsedMessage.message.unreadCount,
-              createdDate: String(new Date(parsedMessage.message.createdDate)),
-            }
-            chatStore.chats.push(recieveChat)
+            chatStore.addChat(chat)
             console.log('💬 채팅 메시지 수신:', message.body)
             moveScroll()
           } else if (parsedMessage.type === 'INFO') {
@@ -181,35 +171,14 @@ function connect() {
                 chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
               }
             }
-            const recieveChat: Chat = {
-              id: parsedMessage.message.id,
-              writerName: parsedMessage.message.writerName,
-              writerId: parsedMessage.message.writerId,
-              roomId: parsedMessage.message.roomId,
-              msg: parsedMessage.message.msg,
-              type: parsedMessage.message.type,
-              delete: false,
-              unreadCount: parsedMessage.message.unreadCount,
-              createdDate: String(new Date(parsedMessage.message.createdDate)),
-            }
-            chatStore.chats.push(recieveChat)
+            chatStore.addChatLeaveText(message)
             moveScroll()
           } else if (parsedMessage.type === 'INVITE') {
             const message = parsedMessage.message
             console.log('해당 유저 들어옴!! : ', message)
-            const recieveChat: Chat = {
-              id: parsedMessage.message.id,
-              writerName: parsedMessage.message.writerName,
-              writerId: parsedMessage.message.writerId,
-              roomId: parsedMessage.message.roomId,
-              msg: parsedMessage.message.msg,
-              type: parsedMessage.message.type,
-              beforeMsgId: parsedMessage.message.beforeMsgId,
-              createdDate: String(new Date(parsedMessage.message.createdDate)),
-            }
-            chatStore.chats.push(recieveChat)
+            chatStore.addChatInviteText(message)
             // 초대 메시지를 상대가 눌렀다면 나의 ui에서도 안보이게 해주기
-            if (!hiddenBtId.has(recieveChat.beforeMsgId)) hiddenBtId.add(recieveChat.beforeMsgId)
+            if (!hiddenBtId.has(message.beforeMsgId)) hiddenBtId.add(message.beforeMsgId)
             moveScroll()
           } else {
             console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
