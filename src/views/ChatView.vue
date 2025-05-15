@@ -21,9 +21,12 @@ const props = defineProps<{
   from: string
 }>()
 
-import { Client, type StompSubscription } from '@stomp/stompjs'
-let websocketClient: Client
-let subscription: StompSubscription | null = null
+import {
+  createOnConnectByChatHandler,
+  submitChatToSocket,
+  unsubscribeFromChatRoom,
+} from '../plugins/socketService'
+// const subscription: StompSubscription | null = null
 let unreadCountByMe: number
 
 const chatStore = useChatStore()
@@ -90,117 +93,83 @@ onMounted(() => {
   getChats()
 })
 
+// TODO : socketService에 함수 사용해서 소켓 구독 경로 추가하는 로직으로 변경
 function connect() {
-  const url = 'ws://localhost:8080/ws-stomp'
-  if (websocketClient && websocketClient.active) {
-    console.log('이미 연결된 웹소켓입니다.')
-    return
-  }
-
-  websocketClient = new Client({
-    brokerURL: url,
-    connectHeaders: {
-      // 'Authorization': 'Bearer yourToken'
-      roomId: String(roomId.value),
-      myId: String(myId.value),
-    },
-    debug: (str) => {
-      console.log(str)
-    },
-    onConnect: () => {
-      console.log('웹소켓 연결 성공!')
-      console.log('roomId.value : ', roomId.value)
-
-      // 기존 구독이 있으면 해제
-      if (subscription) {
-        subscription.unsubscribe()
-      }
-
-      subscription = websocketClient.subscribe(
-        `/topic/chatroom/${roomId.value ?? 0}`,
-        (message) => {
-          const parsedMessage = JSON.parse(message.body)
-          const chat = parsedMessage.message as Chat
-
-          if (parsedMessage.type === 'CHAT') {
-            chatStore.addChat(chat)
-            console.log('💬 채팅 메시지 수신:', message.body)
-            moveScroll()
-          } else if (parsedMessage.type === 'INFO') {
-            console.log('🟢 상대방 입장!, 읽음처리해야할 메시지 개수 : ', parsedMessage.message)
-            // 상대방 입장 시 상대가 해당 채팅방에서 읽지 않았던 메시지 개수만큼 정보 전달! 그거보고 unreadCount 감소처리
-            // 여기서 필요한 처리 (예: 읽음 처리, UI 변경 등)
-            const changeNumber = parseInt(parsedMessage.message)
-            for (
-              let i = chatStore.chats.length - 1;
-              i > Math.max(0, chatStore.chats.length - changeNumber - 1);
-              i--
-            ) {
-              if (chatStore.chats[i].type == 'TEXT') {
-                if (chatStore.chats[i].unreadCount == 0) break
-                chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
-              }
-            }
-          } else if (parsedMessage.type === 'OUT') {
-            if (parsedMessage.message === '상대방 퇴장') {
-              console.log('🟢 상대방 퇴장!!!!!!!')
-            }
-          } else if (parsedMessage.type === 'DELETE') {
-            const deleteMsgId = parsedMessage.messageId
-            console.log('🗑️ 해당 메시지 삭제!! : ', deleteMsgId)
-            const index = chatStore.chats.findIndex((msg) => msg.id === deleteMsgId)
-            if (index !== -1) {
-              //        * like kakaoTalk (전체 삭제일 경우도 그냥 아예 삭제하는 피드백 반영 *
-              // chatStore.chats[index] = {
-              //   ...chatStore.chats[index],
-              //   msg: '삭제된 메시지입니다.',
-              // }
-              chatStore.chats.splice(index, 1)
-            }
-          } else if (parsedMessage.type === 'LEAVE') {
-            const message = parsedMessage.message
-            const changeNumber = parsedMessage.msgToReadCount
-
-            console.log('🗑️ 해당 유저 나감!! : ', message, '읽음처리 수 : ', changeNumber)
-            for (
-              let i = chatStore.chats.length - 1;
-              i > Math.max(0, chatStore.chats.length - changeNumber - 1);
-              i--
-            ) {
-              if (chatStore.chats[i].type == 'TEXT') {
-                if (chatStore.chats[i].unreadCount == 0) break
-                chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
-              }
-            }
-            chatStore.addChatLeaveText(message)
-            moveScroll()
-          } else if (parsedMessage.type === 'INVITE') {
-            const message = parsedMessage.message
-            console.log('해당 유저 들어옴!! : ', message)
-            chatStore.addChatInviteText(message)
-            // 초대 메시지를 상대가 눌렀다면 나의 ui에서도 안보이게 해주기
-            if (!hiddenBtId.value.includes(message.beforeMsgId)) {
-              hiddenBtId.value.push(message.beforeMsgId)
-            }
-            moveScroll()
-          } else {
-            console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
+  const subscribeToChat = createOnConnectByChatHandler(
+    roomId.value!,
+    myId.value!,
+    (parsedMessage) => {
+      console.log('채팅방 웹소켓 연결 성공!!!!!!!!!!!!!!')
+      if (parsedMessage.type === 'CHAT') {
+        console.log('💬 채팅 메시지 수신:', parsedMessage)
+        const chat = parsedMessage.message as Chat
+        chatStore.addChat(chat)
+        moveScroll()
+      } else if (parsedMessage.type === 'INFO') {
+        console.log('🟢 상대방 입장!, 읽음처리해야할 메시지 개수 : ', parsedMessage.message)
+        // 상대방 입장 시 상대가 해당 채팅방에서 읽지 않았던 메시지 개수만큼 정보 전달! 그거보고 unreadCount 감소처리
+        // 여기서 필요한 처리 (예: 읽음 처리, UI 변경 등)
+        const changeNumber = parseInt(parsedMessage.message as string)
+        for (
+          let i = chatStore.chats.length - 1;
+          i > Math.max(0, chatStore.chats.length - changeNumber - 1);
+          i--
+        ) {
+          if (chatStore.chats[i].type == 'TEXT') {
+            if (chatStore.chats[i].unreadCount == 0) break
+            chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
           }
-        },
-      )
+        }
+      } else if (parsedMessage.type === 'OUT') {
+        if (parsedMessage.message === '상대방 퇴장') {
+          console.log('🟢 상대방 퇴장!!!!!!!')
+        }
+      } else if (parsedMessage.type === 'DELETE') {
+        const deleteMsgId = parsedMessage.messageId as string
+        console.log('🗑️ 해당 메시지 삭제!! : ', deleteMsgId)
+        const index = chatStore.chats.findIndex((msg) => msg.id === deleteMsgId)
+        if (index !== -1) {
+          //        * like kakaoTalk (전체 삭제일 경우도 그냥 아예 삭제하는 피드백 반영 *
+          // chatStore.chats[index] = {
+          //   ...chatStore.chats[index],
+          //   msg: '삭제된 메시지입니다.',
+          // }
+          chatStore.chats.splice(index, 1)
+        }
+      } else if (parsedMessage.type === 'LEAVE') {
+        const message = parsedMessage.message as Chat
+        const changeNumber = parsedMessage.msgToReadCount
+        console.log('🗑️ 해당 유저 나감!! : ', parsedMessage.message, '읽음처리 수 : ', changeNumber)
+        for (
+          let i = chatStore.chats.length - 1;
+          i > Math.max(0, chatStore.chats.length - changeNumber - 1);
+          i--
+        ) {
+          if (chatStore.chats[i].type == 'TEXT') {
+            if (chatStore.chats[i].unreadCount == 0) break
+            chatStore.chats[i].unreadCount = (chatStore.chats[i].unreadCount ?? 1) - 1
+          }
+        }
+        chatStore.addChatLeaveText(message)
+        moveScroll()
+      } else if (parsedMessage.type === 'INVITE') {
+        const chatMessage = parsedMessage.message as Chat
+        console.log('해당 유저 들어옴!! : ', chatMessage)
+        chatStore.addChatInviteText(chatMessage)
+        // 초대 메시지를 상대가 눌렀다면 나의 ui에서도 안보이게 해주기
+        if (!hiddenBtId.value.includes(chatMessage.beforeMsgId!)) {
+          hiddenBtId.value.push(chatMessage.beforeMsgId!)
+        }
+        moveScroll()
+      } else {
+        console.log('⚠️ 알 수 없는 메시지 타입:', parsedMessage.type)
+      }
     },
-    onStompError: (frame) => {
-      console.error('STOMP 오류:', frame)
-    },
-  })
-  websocketClient.activate()
+  )
+  subscribeToChat()
 }
-
 onUnmounted(() => {
-  if (websocketClient) {
-    websocketClient.deactivate()
-    console.log('웹소켓 연결 해제')
-  }
+  if (roomId.value) unsubscribeFromChatRoom(roomId.value)
 })
 
 function handleButtonClick() {
@@ -214,32 +183,13 @@ function handleButtonClick() {
       msg: msg.value.trim(),
       regDate: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString(),
     }
-    // console.log('newChat 전송하는 정보 : ', newChat)
-    websocketClient.publish({
-      destination: '/app/message',
-      body: JSON.stringify(newChat),
-    })
+    submitChatToSocket(newChat)
     // 메시지 입력칸 초기화
     msg.value = null
   } else {
     console.log('빈 메시지는 전송할 수 없습니다.')
   }
 }
-// * like kakaoTalk (전체 삭제일 경우도 그냥 아예 삭제하는 피드백 반영 *
-
-// function isWithin5Minutes(createDate: string): boolean {
-//   const now = new Date()
-//   const chatTime = new Date(createDate)
-//   const diff = (now.getTime() - chatTime.getTime()) / 1000
-//   return diff <= 300
-// }
-// async function deleteMessageToMe(msgId: string) {
-//   await deleteChatMessageToMe(msgId, myId.value!)
-//   const index = chatStore.chats.findIndex((chat) => chat.id === msgId)
-//   if (index !== -1) {
-//     chatStore.chats.splice(index, 1)
-//   }
-// }
 
 async function deleteMessageToAll(msgId: string) {
   await deleteChatMessageToAll(msgId, myId.value!)

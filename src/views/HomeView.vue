@@ -5,7 +5,7 @@ import { fetchChatList, fetchChatDelete } from '../api/chatlistApi'
 import { fetchUserInfo } from '../api/userApi'
 import { useChatListStore, type ChatRoom } from '../stores/chatlist'
 import { formatDate } from '../plugins/formatDate'
-import { connectWebSocket, disconnectWebSocket } from '../plugins/socketService'
+import { connectWebSocket } from '../plugins/socketService'
 
 const router = useRouter()
 const chatStore = useChatListStore()
@@ -87,7 +87,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  disconnectWebSocket()
+  // disconnectWebSocket()
 })
 
 function handleChatClick(chat: { roomId: number; name: string }) {
