@@ -169,7 +169,7 @@ function connect() {
   subscribeToChat()
 }
 onUnmounted(() => {
-  if (roomId.value) unsubscribeFromChatRoom(roomId.value)
+  if (roomId.value && myId.value) unsubscribeFromChatRoom(roomId.value, myId.value)
 })
 
 function handleButtonClick() {

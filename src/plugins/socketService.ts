@@ -65,7 +65,7 @@ export function createOnConnectByChatHandler(
 ) {
   return () => {
     const destination = `/topic/chatroom/${roomId}`
-    const subscriptionId = `chatroom-${roomId}`
+    const subscriptionId = `chatroom-${roomId}-user-${myId}`
     subscription = websocketClient!.subscribe(
       destination,
       (message) => {
@@ -78,16 +78,17 @@ export function createOnConnectByChatHandler(
       },
       {
         id: subscriptionId,
-        myId: String(myId), // 헤더에 myId 추가
+        // myId: String(myId), // 헤더에 myId 추가
       },
     )
     subscriptions.set(subscriptionId, subscription)
   }
 }
 
+// TODO : 서버랑 userId와 subId 매치해서 어떤 유저가 들어오고 나가는지 확실히 정리하기
 /// 채팅방 구독 취소
-export function unsubscribeFromChatRoom(roomId: number) {
-  const subscriptionId = `chatroom-${roomId}`
+export function unsubscribeFromChatRoom(roomId: number, myId: number) {
+  const subscriptionId = `chatroom-${roomId}-user-${myId}`
   if (subscriptions.has(subscriptionId)) {
     const sub = subscriptions.get(subscriptionId)
     console.log('구독 취소할 때 sub 확인 : ', sub)
