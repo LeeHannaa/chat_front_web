@@ -85,7 +85,6 @@ export function createOnConnectByChatHandler(
   }
 }
 
-// TODO : 서버랑 userId와 subId 매치해서 어떤 유저가 들어오고 나가는지 확실히 정리하기
 /// 채팅방 구독 취소
 export function unsubscribeFromChatRoom(roomId: number, myId: number) {
   const subscriptionId = `chatroom-${roomId}-user-${myId}`

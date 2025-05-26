@@ -1,15 +1,10 @@
 import type { GroupChatRoom } from '@/views/GroupView.vue'
 
-export const fetchChats = async function fetchData(myId: number, from: string, id: number) {
+export const fetchChats = async function fetchData(myId: number, id: number) {
   let apiUrl = ''
 
-  if (from === 'chatlist') {
-    console.log('chatlist에서 옴!!!')
-    apiUrl = `http://localhost:8080/chatmsg/find/list/${id}?myId=${myId}` // 채팅방 아이디
-  } else {
-    console.log('매물 상세보기에서 채팅방으로 넘어온 경우!!!')
-    apiUrl = `http://localhost:8080/chatmsg/apt/find/list/${id}?myId=${myId}` // 매물 아이디
-  }
+  console.log('chatlist에서 옴!!!')
+  apiUrl = `http://localhost:8080/chatmsg/find/list/${id}?myId=${myId}` // 채팅방 아이디
 
   try {
     const response = await fetch(apiUrl.toString(), {

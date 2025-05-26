@@ -33,6 +33,7 @@ export const useChatListStore = defineStore('chatlist', {
       if (index !== -1) {
         this.chatList[index] = {
           ...this.chatList[index],
+          name: this.chatList[index].name ?? chatMessage.name,
           lastMsg: chatMessage.lastMsg,
           updateLastMsgTime: new Date(chatMessage.updateLastMsgTime ?? Date.now()),
           unreadCount: chatMessage.unreadCount,

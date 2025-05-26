@@ -18,7 +18,7 @@ dayjs.extend(relativeTime)
 const props = defineProps<{
   id: number
   name: string
-  from: string
+  from: string // 단체 채팅을 위해서
 }>()
 
 import {
@@ -55,7 +55,7 @@ async function getChats() {
     connect() // 웹소켓 연결
   } else {
     try {
-      const data = await fetchChats(myId.value, props.from, props.id)
+      const data = await fetchChats(myId.value, props.id)
       console.log('채팅 내역 받아온 데이터 확인 : ', data)
       if (data) {
         if (data[0] && data[0].id) {

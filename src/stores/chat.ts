@@ -14,9 +14,10 @@ export interface Chat {
 }
 export interface postChat {
   writerName: string
-  chatName: string
+  aptId?: number
+  chatName?: string | null
   writerId: number
-  roomId: number
+  roomId?: number | null
   msg?: string
   regDate: string
 }

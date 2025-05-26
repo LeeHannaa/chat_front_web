@@ -33,6 +33,7 @@ function setupSocket() {
     connectWebSocket(myId.value, (parsedMessage) => {
       if (parsedMessage.type === 'CHATLIST') {
         const chatMessage = parsedMessage.message as ChatRoom
+        console.log(chatMessage)
 
         const index = chatStore.chatList.findIndex((chat) => chat.roomId === chatMessage.roomId)
         if (index !== -1) {
@@ -97,7 +98,7 @@ function handleChatClick(chat: { roomId: number; name: string }) {
     query: {
       id: Number(chat.roomId),
       name: chat.name,
-      from: 'chatlist',
+      // from: 'chatlist',
     },
   })
 }

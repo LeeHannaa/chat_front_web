@@ -10,7 +10,6 @@ import { RouterLink, RouterView } from 'vue-router'
       </div>
       <nav>
         <RouterLink to="/">채팅 목록</RouterLink>
-        <RouterLink to="/note">쪽지 목록</RouterLink>
         <RouterLink to="/apt">매물 리스트</RouterLink>
         <RouterLink to="/group">채팅방 생성 테스트</RouterLink>
       </nav>

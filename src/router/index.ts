@@ -19,11 +19,7 @@ const router = createRouter({
         from: route.query.from,
       }),
     },
-    {
-      path: '/note',
-      name: 'note',
-      component: () => import('../views/NoteView.vue'),
-    },
+
     {
       path: '/apt',
       name: 'apt',
