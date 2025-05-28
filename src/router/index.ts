@@ -35,6 +35,11 @@ const router = createRouter({
       }),
     },
     {
+      path: '/person',
+      name: 'person',
+      component: () => import('../views/PersonView.vue'),
+    },
+    {
       path: '/group',
       name: 'group',
       component: () => import('../views/GroupView.vue'),

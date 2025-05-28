@@ -11,6 +11,7 @@ import { RouterLink, RouterView } from 'vue-router'
       <nav>
         <RouterLink to="/">채팅 목록</RouterLink>
         <RouterLink to="/apt">매물 리스트</RouterLink>
+        <RouterLink to="/person">개인 연락 테스트</RouterLink>
         <RouterLink to="/group">채팅방 생성 테스트</RouterLink>
       </nav>
     </div>

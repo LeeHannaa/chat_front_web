@@ -36,6 +36,7 @@ const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
 const hiddenBtId = ref<string[]>([])
+let isGroup = false
 
 function moveScroll() {
   nextTick(() => {
@@ -52,6 +53,7 @@ async function getChats() {
   }
   if (props.from == 'group') {
     roomId.value = props.id
+    isGroup = props.from === 'group'
     connect() // 웹소켓 연결
   } else {
     try {
@@ -230,7 +232,11 @@ async function clickInviteUser(userId: number, msgId: string) {
         />
       </div>
     </div>
-    <div class="inputBox">
+
+    <div
+      v-if="isGroup || (chatStore.chats.length > 0 && chatStore.chats[0].writerId != null)"
+      class="inputBox"
+    >
       <input
         class="msginput"
         v-model="msg"

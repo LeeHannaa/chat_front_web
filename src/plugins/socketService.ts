@@ -1,11 +1,10 @@
 import type { Chat, postChat } from '@/stores/chat'
 import type { ChatRoom } from '@/stores/chatlist'
-import type { Note } from '@/stores/note'
 import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs'
 
 export interface WebSocketMessage {
   type: string
-  message: ChatRoom | Note
+  message: ChatRoom
 }
 
 export interface WebSocketMessageChat {
@@ -24,9 +23,6 @@ export function connectWebSocket(
   onMessage: (parsedMessage: WebSocketMessage) => void,
 ) {
   const url = 'ws://localhost:8080/ws-stomp'
-  if (websocketClient?.active) {
-    disconnectWebSocket()
-  }
 
   websocketClient = new Client({
     brokerURL: url,
@@ -108,10 +104,15 @@ export function submitChatToSocket(newChat: postChat) {
   }
 }
 
-export function disconnectWebSocket() {
-  if (websocketClient?.active) {
-    subscription?.unsubscribe()
-    websocketClient.deactivate()
+export async function disconnectWebSocket() {
+  if (subscription) {
+    subscription.unsubscribe()
+    subscription = null
+  }
+
+  if (websocketClient?.connected || websocketClient?.active) {
+    await websocketClient.deactivate()
+    websocketClient = null
     console.log('웹소켓 연결 종료')
   }
 }

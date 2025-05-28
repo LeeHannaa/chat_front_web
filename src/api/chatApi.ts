@@ -108,6 +108,28 @@ export const postGroupChatRoomCreate = async function fetchData(groupChatRoom: G
   }
 }
 
+export const fetchConnectUserChat = async function fetchData(userId: number, myId: number) {
+  const apiUrl = `http://localhost:8080/chat/connect/${userId}?myId=${myId}`
+
+  try {
+    const response = await fetch(apiUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!response.ok) {
+      throw new Error('Network response was not ok')
+    }
+    const data = await response.json()
+    console.log('방입장 시 상대가 읽지않은 메시지 수 : ', data)
+    return data // 응답 데이터를 반환
+  } catch (error) {
+    console.error('API 요청 실패:', error)
+    throw error // 에러를 상위 함수로 전달
+  }
+}
+
 export const postInviteUserInGroupChat = async function fetchData(
   userId: number,
   roomId: number,
