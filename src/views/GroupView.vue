@@ -18,7 +18,7 @@ async function getUserList() {
     if (data) {
       userStore.userList = []
       userStore.setUserList(data)
-      console.log('매물 목록:', data)
+      console.log('유저 목록:', data)
     }
   } catch (err) {
     console.error(err)

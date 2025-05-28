@@ -13,14 +13,24 @@ const emit = defineEmits<{
   (e: 'delete-message-to-all', id: string): void
   (e: 'click-invite-user', writerId: number, id: string): void
 }>()
+
+function changeToUrl(text?: string): string {
+  if (!text) return ''
+  const urlRegex = /((https?:\/\/)[^\s]+)/g
+  return text.replace(urlRegex, (url) => {
+    return `<a href="${url}" target="_blank" style="color: blue; text-decoration: underline;">${url}</a>`
+  })
+}
 </script>
 <template>
   <div v-if="chat.type === 'TEXT'" class="chat-content">
     <h3 v-if="chat.writerId !== myId">{{ chat.writerName }}</h3>
-    <p class="msg-text">{{ chat.msg }}</p>
+    <p class="msg-text" v-html="changeToUrl(chat.msg ?? '')"></p>
     <p class="date-text">{{ formatDate(chat.createdDate) }}</p>
     <div>
-      <span class="isread">{{ chat.unreadCount === 0 ? '' : chat.unreadCount }}</span>
+      <span class="isread">{{
+        chat?.unreadCount && chat.unreadCount > 0 ? chat.unreadCount : ''
+      }}</span>
       <button
         class="deleteBT"
         v-if="chat.writerId === myId && !chat.delete"

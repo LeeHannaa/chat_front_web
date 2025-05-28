@@ -19,11 +19,7 @@ const router = createRouter({
         from: route.query.from,
       }),
     },
-    {
-      path: '/note',
-      name: 'note',
-      component: () => import('../views/NoteView.vue'),
-    },
+
     {
       path: '/apt',
       name: 'apt',
@@ -37,6 +33,11 @@ const router = createRouter({
         id: Number(route.query.id),
         name: route.query.name,
       }),
+    },
+    {
+      path: '/person',
+      name: 'person',
+      component: () => import('../views/PersonView.vue'),
     },
     {
       path: '/group',

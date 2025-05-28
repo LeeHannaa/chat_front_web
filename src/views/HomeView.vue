@@ -5,7 +5,7 @@ import { fetchChatList, fetchChatDelete } from '../api/chatlistApi'
 import { fetchUserInfo } from '../api/userApi'
 import { useChatListStore, type ChatRoom } from '../stores/chatlist'
 import { formatDate } from '../plugins/formatDate'
-import { connectWebSocket } from '../plugins/socketService'
+import { connectWebSocket, disconnectWebSocket } from '../plugins/socketService'
 
 const router = useRouter()
 const chatStore = useChatListStore()
@@ -23,7 +23,7 @@ async function getChatList() {
       chatStore.sortChatListByLastMsgTime()
       console.log('채팅 목록:', data)
     }
-    setupSocket()
+    setupSocket() // 해당 아이디에 소켓 연결
   } catch (err) {
     console.error(err)
   }
@@ -33,6 +33,7 @@ function setupSocket() {
     connectWebSocket(myId.value, (parsedMessage) => {
       if (parsedMessage.type === 'CHATLIST') {
         const chatMessage = parsedMessage.message as ChatRoom
+        console.log(chatMessage)
 
         const index = chatStore.chatList.findIndex((chat) => chat.roomId === chatMessage.roomId)
         if (index !== -1) {
@@ -61,6 +62,7 @@ async function getUserInfo() {
   }
 }
 function handleButtonClick() {
+  disconnectWebSocket() // 이름 수정 시 소켓 연결 해제
   if (myId.value !== null) {
     getChatList()
   } else {
@@ -97,7 +99,7 @@ function handleChatClick(chat: { roomId: number; name: string }) {
     query: {
       id: Number(chat.roomId),
       name: chat.name,
-      from: 'chatlist',
+      // from: 'chatlist',
     },
   })
 }

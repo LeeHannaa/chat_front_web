@@ -18,7 +18,7 @@ dayjs.extend(relativeTime)
 const props = defineProps<{
   id: number
   name: string
-  from: string
+  from: string // 단체 채팅을 위해서
 }>()
 
 import {
@@ -36,6 +36,7 @@ const roomId = ref<number | null>(null)
 const msg = ref<string | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
 const hiddenBtId = ref<string[]>([])
+let isGroup = false
 
 function moveScroll() {
   nextTick(() => {
@@ -52,10 +53,11 @@ async function getChats() {
   }
   if (props.from == 'group') {
     roomId.value = props.id
+    isGroup = props.from === 'group'
     connect() // 웹소켓 연결
   } else {
     try {
-      const data = await fetchChats(myId.value, props.from, props.id)
+      const data = await fetchChats(myId.value, props.id)
       console.log('채팅 내역 받아온 데이터 확인 : ', data)
       if (data) {
         if (data[0] && data[0].id) {
@@ -230,7 +232,11 @@ async function clickInviteUser(userId: number, msgId: string) {
         />
       </div>
     </div>
-    <div class="inputBox">
+
+    <div
+      v-if="isGroup || (chatStore.chats.length > 0 && chatStore.chats[0].writerId != null)"
+      class="inputBox"
+    >
       <input
         class="msginput"
         v-model="msg"

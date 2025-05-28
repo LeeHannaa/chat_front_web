@@ -4,13 +4,22 @@ import { useRouter } from 'vue-router'
 import { type APTDetail } from '../stores/apt'
 import { fetchAPTDetailList } from '../api/aptApi'
 import { postNoteByNonMember } from '../api/noteApi'
+import type { postChat } from '../stores/chat'
+import { connectWebSocket, submitChatToSocket } from '../plugins/socketService'
 export interface NoteNonMember {
   aptId: number
   phoneNumber: string
   noteText: string
+  regDate: string
 }
+interface ChatInfo {
+  roomId: number
+  name: string
+}
+
 const router = useRouter()
 const myId = ref<number | null>(null)
+const myName = ref<string | null>(null)
 const aptDetail = ref<APTDetail | null>(null)
 
 const props = defineProps<{
@@ -37,21 +46,46 @@ async function getAPTDetail() {
 onMounted(() => {
   getAPTDetail()
   const storedId = localStorage.getItem('userId')
+  const storedName = localStorage.getItem('userName')
   if (storedId) {
     myId.value = Number(storedId)
-    console.log('myId : ', myId.value)
+    myName.value = String(storedName)
+    console.log('myId : ', myId.value, storedName)
   }
 })
 
-function handleAPTClick(apt: { id: number; name: string }) {
-  router.push({
-    path: '/chat',
-    query: {
-      id: Number(apt.id),
-      name: apt.name,
-      from: 'aptlist',
-    },
-  })
+function handleAPTClick() {
+  // 매물 문의 채팅 전송
+  const newChat: postChat = {
+    writerName: myName.value ?? '',
+    aptId: props.id,
+    chatName: null,
+    writerId: myId.value ?? 0,
+    roomId: null,
+    msg: decodeURIComponent(window.location.href),
+    regDate: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString(),
+  }
+  submitChatToSocket(newChat)
+
+  // TODO : 방 생성이 완료되면 방 ID 또는 완료 신호를 받고 채팅방으로 이동
+  if (myId.value) {
+    connectWebSocket(myId.value, (parsedMessage) => {
+      if (parsedMessage.type === 'CLEAR_ROOM') {
+        const info = parsedMessage.message as ChatInfo
+        console.log(info)
+        // 채팅방으로 이동
+        // 받아야 하는 정보 : 방 아이디, 상대방 이름,
+        router.push({
+          path: '/chat',
+          query: {
+            id: info.roomId,
+            name: info.name,
+            // from: 'aptlist',
+          },
+        })
+      }
+    })
+  }
 }
 
 const phoneNumber = ref('')
@@ -61,6 +95,7 @@ async function handleSendNoteClick() {
     aptId: props.id,
     phoneNumber: phoneNumber.value.trim(),
     noteText: noteText.value.trim(),
+    regDate: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString(),
   }
   console.log('전송할 데이터:', requestData)
   const data = await postNoteByNonMember(requestData)
@@ -82,7 +117,7 @@ async function handleSendNoteClick() {
         <p style="margin-bottom: 50px">기타 등등의 정보들</p>
         <div v-if="myId != null">
           <button v-if="aptDetail?.userId === myId" class="aptDetailBT">매물 수정</button>
-          <button v-else class="aptDetailBT" @click="aptDetail && handleAPTClick(aptDetail)">
+          <button v-else class="aptDetailBT" @click="aptDetail && handleAPTClick()">
             채팅 문의
           </button>
         </div>
