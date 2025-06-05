@@ -127,16 +127,12 @@ function connect() {
           console.log('🟢 상대방 퇴장!!!!!!!')
         }
       } else if (parsedMessage.type === 'DELETE') {
-        const deleteMsgId = parsedMessage.messageId as string
+        const deleteMsgId = parsedMessage.messageId
         console.log('🗑️ 해당 메시지 삭제!! : ', deleteMsgId)
         const index = chatStore.chats.findIndex((msg) => msg.id === deleteMsgId)
         if (index !== -1) {
-          //        * like kakaoTalk (전체 삭제일 경우도 그냥 아예 삭제하는 피드백 반영 *
-          // chatStore.chats[index] = {
-          //   ...chatStore.chats[index],
-          //   msg: '삭제된 메시지입니다.',
-          // }
           chatStore.chats.splice(index, 1)
+          chatStore.chats = [...chatStore.chats]
         }
       } else if (parsedMessage.type === 'LEAVE') {
         const message = parsedMessage.message as Chat
@@ -234,7 +230,11 @@ async function clickInviteUser(userId: number, msgId: string) {
     </div>
 
     <div
-      v-if="isGroup || (chatStore.chats.length > 0 && chatStore.chats[0].writerId != null)"
+      v-if="
+        props.from == 'person' ||
+        isGroup ||
+        (chatStore.chats.length > 0 && chatStore.chats[0].writerId != null)
+      "
       class="inputBox"
     >
       <input

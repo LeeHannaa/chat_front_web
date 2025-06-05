@@ -94,7 +94,7 @@ async function handleSendNoteClick() {
   const requestData: NoteNonMember = {
     aptId: props.id,
     phoneNumber: phoneNumber.value.trim(),
-    noteText: noteText.value.trim(),
+    noteText: decodeURIComponent(window.location.href) + ' : ' + noteText.value.trim(),
     regDate: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString(),
   }
   console.log('전송할 데이터:', requestData)
